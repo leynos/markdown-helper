@@ -6,12 +6,13 @@ XPI := $(DIST)/markdown-helper.xpi
 all: test
 
 test:
-	node --test 'test/**/*.test.js'
+	node --test test/*.test.js
 
 package: test
 	mkdir -p $(DIST)
 	rm -f $(XPI)
 	cd src && zip -r ../$(XPI) manifest.json background.js content.js markdown.js icons -x 'icons/icon-1024.png'
+	zip -j $(XPI) LICENSE
 
 clean:
 	rm -rf $(DIST)
