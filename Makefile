@@ -11,7 +11,7 @@ test:
 package: test
 	mkdir -p $(DIST)
 	rm -f $(XPI)
-	cd src && zip -r ../$(XPI) manifest.json background.js content.js markdown.js
+	cd src && zip -r ../$(XPI) manifest.json background.js content.js markdown.js icons -x 'icons/icon-1024.png'
 
 clean:
 	rm -rf $(DIST)
