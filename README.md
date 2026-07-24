@@ -114,7 +114,7 @@ ______________________________________________________________________
 
 ## Licence
 
-A licence has not yet been chosen for this project.
+ISC — see [LICENSE](LICENSE) for details.
 
 ______________________________________________________________________
 
