@@ -122,13 +122,15 @@ const MDHelper = (() => {
 
   function toggleItalic(value, start, end) {
     // A lone "*" only counts as italic when neither marker abuts another
-    // "*" (which would make it part of a "**" bold run).
+    // "*" (which would make it part of a "**" bold run). When the wrapped
+    // text is empty the markers abut each other, so only the outer sides
+    // are checked.
     const notBold =
       (marker) => (value, openStart, openEnd, closeStart, closeEnd) =>
         value[openStart - 1] !== marker &&
-        value[openEnd] !== marker &&
-        value[closeStart - 1] !== marker &&
-        value[closeEnd] !== marker;
+        value[closeEnd] !== marker &&
+        (openEnd === closeStart ||
+          (value[openEnd] !== marker && value[closeStart - 1] !== marker));
     return toggleWrap(
       value,
       start,

@@ -32,24 +32,36 @@ function replaceRange(el, start, end, text) {
   }
 }
 
+const TAG = '[markdown-helper]';
+
 browser.runtime.onMessage.addListener((msg) => {
   if (!msg || msg.type !== 'markdown-helper') return;
 
   const el = browser.menus.getTargetElement(msg.targetElementId);
-  if (!isTextField(el)) return;
-
-  const result = MDHelper.apply(
-    msg.command,
-    el.value,
-    el.selectionStart,
-    el.selectionEnd
-  );
-  if (!result) return;
-
-  el.focus();
-  const edits = [...result.edits].sort((a, b) => b.start - a.start);
-  for (const { start, end, text } of edits) {
-    replaceRange(el, start, end, text);
+  if (!isTextField(el)) {
+    console.debug(TAG, 'ignoring', msg.command, 'on a non-text-field target');
+    return;
   }
-  el.setSelectionRange(result.selection.start, result.selection.end);
+
+  try {
+    const result = MDHelper.apply(
+      msg.command,
+      el.value,
+      el.selectionStart,
+      el.selectionEnd
+    );
+    if (!result) {
+      console.debug(TAG, msg.command, 'was a no-op for the current selection');
+      return;
+    }
+
+    el.focus();
+    const edits = [...result.edits].sort((a, b) => b.start - a.start);
+    for (const { start, end, text } of edits) {
+      replaceRange(el, start, end, text);
+    }
+    el.setSelectionRange(result.selection.start, result.selection.end);
+  } catch (err) {
+    console.error(TAG, 'failed to apply', msg.command, err);
+  }
 });

@@ -1,5 +1,14 @@
 'use strict';
 
+/*
+ * Background script for the Markdown Helper extension.
+ *
+ * Builds the "Markdown" context menu shown on editable fields and, when an
+ * item is clicked, relays the chosen command plus the target element id to
+ * the content script (content.js) in the originating frame, which performs
+ * the actual edit using the transformations in markdown.js.
+ */
+
 const MENU_ITEMS = [
   { id: 'quote', title: 'Toggle &Quote' },
   { id: 'bold', title: 'Toggle &Bold' },
@@ -36,5 +45,15 @@ browser.menus.onClicked.addListener((info, tab) => {
       },
       { frameId: info.frameId }
     )
-    .catch((err) => console.error('Markdown Helper:', err));
+    .catch((err) =>
+      console.error(
+        '[markdown-helper] failed to deliver command',
+        info.menuItemId,
+        'to tab',
+        tab.id,
+        'frame',
+        info.frameId,
+        err
+      )
+    );
 });

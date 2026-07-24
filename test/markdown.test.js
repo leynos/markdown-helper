@@ -1,5 +1,12 @@
 'use strict';
 
+/*
+ * Example-based unit tests for the pure text transformations in
+ * src/markdown.js. Each case marks the selection with «…» delimiters and
+ * asserts the resulting text. Property-based invariants live in
+ * properties.test.js; the browser wiring is covered by extension.test.js.
+ */
+
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const MD = require('../src/markdown.js');
@@ -86,6 +93,14 @@ test('italic on combined emphasis removes only the italic layer', () => {
   assert.equal(run('italic', 'say «***hello***» there'), 'say **hello** there');
   assert.equal(run('italic', 'say ***«hello»*** there'), 'say **hello** there');
   assert.equal(run('italic', 'say «___hello___» there'), 'say __hello__ there');
+});
+
+test('empty-selection emphasis markers toggle back off', () => {
+  const r1 = MD.apply('italic', 'ab', 1, 1);
+  const once = MD.applyToString('ab', r1);
+  assert.equal(once, 'a**b');
+  const r2 = MD.apply('italic', once, r1.selection.start, r1.selection.end);
+  assert.equal(MD.applyToString(once, r2), 'ab');
 });
 
 test('italic toggle round-trips over bold text', () => {

@@ -110,7 +110,10 @@ between the content script and the test suite:
 - `src/content.js` — locates the right-clicked field and applies edits via
   `execCommand("insertText")`, falling back to `setRangeText`
 - `src/markdown.js` — the text transformations
-- `test/markdown.test.js` — unit tests (`node --test`)
+- `test/markdown.test.js` — example-based unit tests (`node --test`)
+- `test/properties.test.js` — seeded property-based invariant tests
+- `test/extension.test.js` — behavioural tests for the menu and message
+  wiring, run against stubbed browser APIs
 
 ______________________________________________________________________
 
