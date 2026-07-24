@@ -77,13 +77,15 @@ ______________________________________________________________________
   stays intact); removes one quote level when everything is already quoted.
 - **Toggle Bold** — wraps in `**…**`; removes `**…**` or `__…__`.
 - **Toggle Italic** — wraps in `*…*`; removes `*…*` or `_…_`, and never
-  strips half of a `**bold**` run — italicized bold becomes `***both***`.
+  strips half of a `**bold**` run — italicized bold becomes `***both***`,
+  and toggling again removes only the italic layer.
 - **Toggle Code Span** — wraps in backticks, lengthening the fence and
   padding with spaces when the selection itself contains backticks, per GFM
   code-span rules.
 - **Toggle Code Block** — expands the selection to whole lines and wraps it
-  in ``` fences; removes fences found inside the selection or on the lines
-  directly above and below it.
+  in ``` fences, lengthening the fence when the selection itself contains
+  fence lines; removes matching fences found inside the selection or on the
+  lines directly above and below it.
 - **Convert to Footnote** — replaces the selection with `[^n]` and appends
   `[^n]: …` at the end of the text box, choosing `n` as the next number
   after the highest numeric label already referenced or defined. Multiline

@@ -53,17 +53,19 @@ const MDHelper = (() => {
   /**
    * Toggle a wrapping marker pair around the selection.
    *
-   * detect: array of { open, close, guard? } marker pairs recognised for
-   * removal; guard(value, openStart, openEnd, closeStart, closeEnd) may veto
-   * a match given the marker spans (used so italic "*" does not strip half
-   * of a bold "**").
+   * detect: array of { open, close, guard?, keepOpen?, keepClose? } marker
+   * pairs recognised for removal; guard(value, openStart, openEnd,
+   * closeStart, closeEnd) may veto a match given the marker spans (used so
+   * italic "*" does not strip half of a bold "**"). keepOpen/keepClose are
+   * what replaces the removed markers (default: nothing) — this lets italic
+   * reduce combined "***text***" emphasis back to "**text**".
    * add: { open, close } used when wrapping.
    */
   function toggleWrap(value, start, end, detect, add) {
     ({ start, end } = trimSelection(value, start, end));
     const sel = value.slice(start, end);
 
-    for (const { open, close, guard } of detect) {
+    for (const { open, close, guard, keepOpen = '', keepClose = '' } of detect) {
       // Markers included in the selection itself: **text**
       if (
         sel.length >= open.length + close.length &&
@@ -73,7 +75,8 @@ const MDHelper = (() => {
           guard(value, start, start + open.length, end - close.length, end))
       ) {
         const inner = sel.slice(open.length, sel.length - close.length);
-        return singleEdit(start, end, inner, start, start + inner.length);
+        const text = keepOpen + inner + keepClose;
+        return singleEdit(start, end, text, start, start + text.length);
       }
       // Markers immediately surrounding the selection: **|text|**
       if (
@@ -83,12 +86,13 @@ const MDHelper = (() => {
         (!guard ||
           guard(value, start - open.length, start, end, end + close.length))
       ) {
+        const text = keepOpen + sel + keepClose;
         return singleEdit(
           start - open.length,
           end + close.length,
-          sel,
+          text,
           start - open.length,
-          start - open.length + sel.length
+          start - open.length + text.length
         );
       }
     }
@@ -130,6 +134,21 @@ const MDHelper = (() => {
       start,
       end,
       [
+        // Combined bold+italic: removing italic keeps the bold layer.
+        {
+          open: '***',
+          close: '***',
+          guard: notBold('*'),
+          keepOpen: '**',
+          keepClose: '**',
+        },
+        {
+          open: '___',
+          close: '___',
+          guard: notBold('_'),
+          keepOpen: '__',
+          keepClose: '__',
+        },
         { open: '*', close: '*', guard: notBold('*') },
         { open: '_', close: '_', guard: notBold('_') },
       ],
@@ -215,7 +234,39 @@ const MDHelper = (() => {
   // Fenced code block toggle
   // ------------------------------------------------------------------
 
-  const FENCE_LINE = /^ {0,3}(```+|~~~+)\s*\S*\s*$/;
+  /** Parse a fence line into { char, length, info }, or null. */
+  function parseFence(line) {
+    const m = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (!m) return null;
+    return { char: m[1][0], length: m[1].length, info: m[2].trim() };
+  }
+
+  /**
+   * A closing fence must use the same character as the opening fence, be at
+   * least as long, and carry no info string (CommonMark fence rules).
+   */
+  function fencesMatch(open, close) {
+    return (
+      open !== null &&
+      close !== null &&
+      close.char === open.char &&
+      close.length >= open.length &&
+      close.info === ''
+    );
+  }
+
+  /**
+   * Build a backtick fence longer than any backtick fence line inside the
+   * block, so embedded Markdown examples cannot terminate it early.
+   */
+  function fenceFor(lines) {
+    let longest = 2;
+    for (const line of lines) {
+      const m = line.match(/^ {0,3}(`{3,})/);
+      if (m) longest = Math.max(longest, m[1].length);
+    }
+    return '`'.repeat(longest + 1);
+  }
 
   function toggleCodeBlock(value, start, end) {
     const { lineStart, lineEnd } = lineBounds(value, start, end);
@@ -225,8 +276,7 @@ const MDHelper = (() => {
     // Selection includes the fences themselves.
     if (
       lines.length >= 2 &&
-      FENCE_LINE.test(lines[0]) &&
-      FENCE_LINE.test(lines[lines.length - 1])
+      fencesMatch(parseFence(lines[0]), parseFence(lines[lines.length - 1]))
     ) {
       const inner = lines.slice(1, -1).join('\n');
       return singleEdit(lineStart, lineEnd, inner, lineStart, lineStart + inner.length);
@@ -238,7 +288,7 @@ const MDHelper = (() => {
       const nextBounds = lineBounds(value, lineEnd + 1, lineEnd + 1);
       const prevLine = value.slice(prevBounds.lineStart, prevBounds.lineEnd);
       const nextLine = value.slice(nextBounds.lineStart, nextBounds.lineEnd);
-      if (FENCE_LINE.test(prevLine) && FENCE_LINE.test(nextLine)) {
+      if (fencesMatch(parseFence(prevLine), parseFence(nextLine))) {
         // Remove both fence lines (each with its trailing/leading newline).
         return {
           edits: [
@@ -253,7 +303,8 @@ const MDHelper = (() => {
       }
     }
 
-    const text = '```\n' + block + '\n```';
+    const fence = fenceFor(lines);
+    const text = fence + '\n' + block + '\n' + fence;
     return singleEdit(lineStart, lineEnd, text, lineStart, lineStart + text.length);
   }
 

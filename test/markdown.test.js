@@ -82,6 +82,18 @@ test('italic on bold text adds italic instead of breaking bold', () => {
   assert.equal(run('italic', 'say **«hello»** there'), 'say ***hello*** there');
 });
 
+test('italic on combined emphasis removes only the italic layer', () => {
+  assert.equal(run('italic', 'say «***hello***» there'), 'say **hello** there');
+  assert.equal(run('italic', 'say ***«hello»*** there'), 'say **hello** there');
+  assert.equal(run('italic', 'say «___hello___» there'), 'say __hello__ there');
+});
+
+test('italic toggle round-trips over bold text', () => {
+  const once = run('italic', 'say **«hello»** there');
+  assert.equal(once, 'say ***hello*** there');
+  assert.equal(run('italic', 'say «***hello***» there'), 'say **hello** there');
+});
+
 // ------------------------------------------------------------ code span
 
 test('code span wraps a selection', () => {
@@ -118,6 +130,29 @@ test('code block unwraps when fences surround the selection', () => {
 
 test('code block recognises fences with an info string', () => {
   assert.equal(run('code-block', '«```python\nx = 1\n```»'), 'x = 1');
+});
+
+test('code block uses a longer fence around embedded backtick fences', () => {
+  assert.equal(
+    run('code-block', '«# Example\n```\nx = 1\n```»'),
+    '````\n# Example\n```\nx = 1\n```\n````'
+  );
+});
+
+test('code block does not unwrap mismatched fences', () => {
+  // A tilde line cannot close a backtick fence, so this is not a fenced
+  // block: wrap it (with a fence longer than the embedded backtick run).
+  assert.equal(run('code-block', '«```\nx\n~~~»'), '````\n```\nx\n~~~\n````');
+  // Nor can a shorter closing fence close a longer opening fence.
+  assert.equal(
+    run('code-block', '«````\nx\n```»'),
+    '`````\n````\nx\n```\n`````'
+  );
+});
+
+test('code block unwraps longer and tilde fences', () => {
+  assert.equal(run('code-block', '«````\nx\n````»'), 'x');
+  assert.equal(run('code-block', '«~~~\nx\n~~~»'), 'x');
 });
 
 // ------------------------------------------------------------- footnote
