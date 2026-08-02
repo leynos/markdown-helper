@@ -2,8 +2,8 @@
 
 *Right-click Markdown formatting for any text box in Firefox.*
 
-<img src="src/icons/icon-128.png" align="right" alt="A chibi scribe writing
-an M-down-arrow mark on a parchment scroll" />
+![A chibi scribe writing an M-down-arrow mark on a parchment
+scroll](src/icons/icon-128.png)
 
 Select some text in a `<textarea>`, right-click, and pick a command from the
 **Markdown** menu. Quoting, bold, italic, code spans, code blocks, and GFM
@@ -101,6 +101,10 @@ ______________________________________________________________________
 make test      # run the unit tests (Node >= 18)
 make package   # run the tests, then build dist/markdown-helper.xpi
 ```
+
+See the [user guide](docs/users-guide.md) for installation and command usage,
+and the [developer guide](docs/developers-guide.md) for architecture, commit
+gates, and packaging.
 
 The interesting logic lives in `src/markdown.js` as pure functions shared
 between the content script and the test suite:
