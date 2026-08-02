@@ -1,5 +1,3 @@
-'use strict';
-
 /*
  * Property-based tests for the invariants encoded in src/markdown.js:
  * quote and emphasis round-trips, code-block fence sizing, and footnote
@@ -34,14 +32,14 @@ function randomLine(rand) {
   if (rand() < 0.2) return '';
   const indent = ' '.repeat(randInt(rand, 0, 3));
   const words = Array.from({ length: randInt(rand, 1, 4) }, () =>
-    pick(rand, WORDS)
+    pick(rand, WORDS),
   );
   return indent + words.join(' ');
 }
 
 function randomText(rand, lineFn = randomLine) {
   return Array.from({ length: randInt(rand, 1, 6) }, () => lineFn(rand)).join(
-    '\n'
+    '\n',
   );
 }
 
@@ -54,7 +52,7 @@ test('property: quoting then unquoting restores any unquoted text', () => {
   for (let i = 0; i < RUNS; i += 1) {
     // Guarantee at least one non-blank, unquoted line so the first toggle
     // adds a level (generated lines never start with ">").
-    const text = randomText(rand) + '\n' + pick(rand, WORDS);
+    const text = `${randomText(rand)}\n${pick(rand, WORDS)}`;
     const r1 = MD.apply('quote', text, 0, text.length);
     const quoted = applyAll(text, r1);
     for (const line of quoted.split('\n')) {
@@ -102,7 +100,7 @@ test('property: code block wrap picks a fence longer than any inside', () => {
       if (m) {
         assert.ok(
           m[1].length < fence.length,
-          `embedded fence ${m[1]} not shorter than ${fence} (case ${i})`
+          `embedded fence ${m[1]} not shorter than ${fence} (case ${i})`,
         );
       }
     }
@@ -110,7 +108,7 @@ test('property: code block wrap picks a fence longer than any inside', () => {
       'code-block',
       wrapped,
       r1.selection.start,
-      r1.selection.end
+      r1.selection.end,
     );
     assert.equal(applyAll(wrapped, r2), text, `round-trip seed case ${i}`);
   }
@@ -132,13 +130,13 @@ test('property: footnote labels increase strictly and never collide', () => {
       const next = Number(MD.nextFootnoteLabel(text));
       text = applyAll(text, result);
       const labels = [...text.matchAll(/\[\^(\d+)\]:/g)].map((m) =>
-        Number(m[1])
+        Number(m[1]),
       );
       assert.ok(labels.includes(next), `definition missing (case ${i})`);
       assert.equal(
         new Set(labels).size,
         labels.length,
-        `duplicate labels (case ${i})`
+        `duplicate labels (case ${i})`,
       );
       assert.ok(next > previous, `labels not increasing (case ${i})`);
       previous = next;

@@ -1,5 +1,3 @@
-'use strict';
-
 /*
  * Example-based unit tests for the pure text transformations in
  * src/markdown.js. Each case marks the selection with «…» delimiters and
@@ -132,7 +130,10 @@ test('code span pads content that starts with a backtick', () => {
 // ----------------------------------------------------------- code block
 
 test('code block wraps selected lines', () => {
-  assert.equal(run('code-block', 'a\n«x = 1\ny = 2»\nb'), 'a\n```\nx = 1\ny = 2\n```\nb');
+  assert.equal(
+    run('code-block', 'a\n«x = 1\ny = 2»\nb'),
+    'a\n```\nx = 1\ny = 2\n```\nb',
+  );
 });
 
 test('code block unwraps when fences are inside the selection', () => {
@@ -150,7 +151,7 @@ test('code block recognises fences with an info string', () => {
 test('code block uses a longer fence around embedded backtick fences', () => {
   assert.equal(
     run('code-block', '«# Example\n```\nx = 1\n```»'),
-    '````\n# Example\n```\nx = 1\n```\n````'
+    '````\n# Example\n```\nx = 1\n```\n````',
   );
 });
 
@@ -161,7 +162,7 @@ test('code block does not unwrap mismatched fences', () => {
   // Nor can a shorter closing fence close a longer opening fence.
   assert.equal(
     run('code-block', '«````\nx\n```»'),
-    '`````\n````\nx\n```\n`````'
+    '`````\n````\nx\n```\n`````',
   );
 });
 
@@ -175,28 +176,28 @@ test('code block unwraps longer and tilde fences', () => {
 test('footnote moves the selection to a definition at the end', () => {
   assert.equal(
     run('footnote', 'This is «important» text.'),
-    'This is [^1] text.\n\n[^1]: important\n'
+    'This is [^1] text.\n\n[^1]: important\n',
   );
 });
 
 test('footnote numbering skips existing labels', () => {
   assert.equal(
     run('footnote', 'Already noted[^2] and «this too».\n\n[^2]: earlier\n'),
-    'Already noted[^2] and [^3].\n\n[^2]: earlier\n[^3]: this too\n'
+    'Already noted[^2] and [^3].\n\n[^2]: earlier\n[^3]: this too\n',
   );
 });
 
 test('footnote ignores non-numeric labels but never collides', () => {
   assert.equal(
     run('footnote', 'See[^note] and «this».\n\n[^note]: aside\n'),
-    'See[^note] and [^1].\n\n[^note]: aside\n[^1]: this\n'
+    'See[^note] and [^1].\n\n[^note]: aside\n[^1]: this\n',
   );
 });
 
 test('footnote indents continuation lines', () => {
   assert.equal(
     run('footnote', 'Take «line one\nline two» away.'),
-    'Take [^1] away.\n\n[^1]: line one\n    line two\n'
+    'Take [^1] away.\n\n[^1]: line one\n    line two\n',
   );
 });
 

@@ -1,9 +1,18 @@
-.PHONY: all test package clean
+.PHONY: all check-fmt lint typecheck test package clean
 
 DIST := dist
 XPI := $(DIST)/markdown-helper.xpi
 
-all: test
+all: check-fmt lint typecheck test
+
+check-fmt:
+	bunx --bun biome format .
+
+lint:
+	bunx --bun biome lint .
+
+typecheck:
+	bunx --bun tsc -p jsconfig.json
 
 test:
 	node --test test/*.test.js

@@ -1,5 +1,3 @@
-'use strict';
-
 /*
  * Behavioural tests for the extension wiring: the context-menu setup and
  * message routing in src/background.js, and the message handling, text-field
@@ -39,6 +37,7 @@ class FakeTextArea {
     this.selectionEnd = 0;
     this.focused = false;
     this.dispatched = [];
+    this.listeners = new Map();
   }
 
   focus() {
@@ -59,6 +58,23 @@ class FakeTextArea {
 
   dispatchEvent(event) {
     this.dispatched.push(event);
+    for (const listener of this.listeners.get(event.type) || []) {
+      listener(event);
+    }
+  }
+
+  addEventListener(type, listener) {
+    const listeners = this.listeners.get(type) || [];
+    listeners.push(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  removeEventListener(type, listener) {
+    const listeners = this.listeners.get(type) || [];
+    this.listeners.set(
+      type,
+      listeners.filter((candidate) => candidate !== listener),
+    );
   }
 }
 
@@ -75,8 +91,15 @@ class FakeInput extends FakeTextArea {
  * (editing via the element's current selection) or reports failure so the
  * setRangeText fallback runs.
  */
-function loadContentScript(target, { execCommandOk = true } = {}) {
-  const captured = { listener: null, logs: [], errors: [] };
+function loadContentScript(
+  target,
+  {
+    execCommandOk = true,
+    execCommandEdits = true,
+    execCommandEmitsInput = true,
+  } = {},
+) {
+  const captured = { listener: null, logs: [], errors: [], execCommands: [] };
   const sandbox = {
     MDHelper,
     Event: FakeEvent,
@@ -88,16 +111,37 @@ function loadContentScript(target, { execCommandOk = true } = {}) {
     },
     document: {
       execCommand(command, _ui, text) {
+        captured.execCommands.push({ command, text });
         if (!execCommandOk) return false;
-        if (command === 'insertText' && text !== '') {
-          target.setRangeText(text, target.selectionStart, target.selectionEnd, 'end');
+        if (execCommandEdits && command === 'insertText' && text !== '') {
+          target.setRangeText(
+            text,
+            target.selectionStart,
+            target.selectionEnd,
+            'end',
+          );
+          if (execCommandEmitsInput) {
+            target.dispatchEvent(
+              new FakeEvent('input', { bubbles: true, isTrusted: true }),
+            );
+          }
           return true;
         }
-        if (command === 'delete') {
-          target.setRangeText('', target.selectionStart, target.selectionEnd, 'end');
+        if (execCommandEdits && command === 'delete') {
+          target.setRangeText(
+            '',
+            target.selectionStart,
+            target.selectionEnd,
+            'end',
+          );
+          if (execCommandEmitsInput) {
+            target.dispatchEvent(
+              new FakeEvent('input', { bubbles: true, isTrusted: true }),
+            );
+          }
           return true;
         }
-        return false;
+        return true;
       },
     },
     browser: {
@@ -171,12 +215,18 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 test('content script applies a command and sets the selection', () => {
   const el = new FakeTextArea('say hello there');
   el.setSelectionRange(4, 9);
-  const { listener } = loadContentScript(el);
+  const { listener, execCommands } = loadContentScript(el);
   listener(message('bold'));
+  assert.deepEqual(execCommands, [
+    { command: 'insertText', text: '**hello**' },
+  ]);
   assert.equal(el.value, 'say **hello** there');
   assert.equal(el.focused, true);
   assert.equal(el.selectionStart, 6);
   assert.equal(el.selectionEnd, 11);
+  const inputs = el.dispatched.filter((event) => event.type === 'input');
+  assert.equal(inputs.length, 1);
+  assert.equal(inputs[0].isTrusted, true);
 });
 
 test('content script applies multi-edit commands (footnote)', () => {
@@ -195,7 +245,36 @@ test('content script falls back to setRangeText and fires input', () => {
   const { listener } = loadContentScript(el, { execCommandOk: false });
   listener(message('bold'));
   assert.equal(el.value, 'say **hello** there');
-  assert.ok(el.dispatched.some((e) => e.type === 'input' && e.bubbles));
+  const inputs = el.dispatched.filter((event) => event.type === 'input');
+  assert.equal(inputs.length, 1);
+  assert.equal(inputs[0].bubbles, true);
+  assert.equal(inputs[0].isTrusted, undefined);
+});
+
+test('content script synthesizes one input when native editing is silent', () => {
+  const el = new FakeTextArea('say hello there');
+  el.setSelectionRange(4, 9);
+  const { listener } = loadContentScript(el, {
+    execCommandEmitsInput: false,
+  });
+  listener(message('bold'));
+  assert.equal(el.value, 'say **hello** there');
+  assert.equal(
+    el.dispatched.filter((event) => event.type === 'input').length,
+    1,
+  );
+});
+
+test('content script falls back when execCommand reports a no-op', () => {
+  const el = new FakeTextArea('say hello there');
+  el.setSelectionRange(4, 9);
+  const { listener } = loadContentScript(el, { execCommandEdits: false });
+  listener(message('bold'));
+  assert.equal(el.value, 'say **hello** there');
+  assert.equal(
+    el.dispatched.filter((event) => event.type === 'input').length,
+    1,
+  );
 });
 
 test('content script accepts single-line text inputs', () => {
@@ -242,10 +321,14 @@ test('background script creates the parent menu and six commands', () => {
   assert.ok(parent);
   assert.deepEqual(plain(parent.contexts), ['editable']);
   const children = created.filter((m) => m.parentId === 'markdown-helper');
-  assert.deepEqual(
-    children.map((m) => m.id).sort(),
-    ['bold', 'code-block', 'code-span', 'footnote', 'italic', 'quote']
-  );
+  assert.deepEqual(children.map((m) => m.id).sort(), [
+    'bold',
+    'code-block',
+    'code-span',
+    'footnote',
+    'italic',
+    'quote',
+  ]);
 });
 
 test('background script routes clicks to the right tab and frame', () => {
@@ -257,7 +340,7 @@ test('background script routes clicks to the right tab and frame', () => {
       targetElementId: 42,
       frameId: 3,
     },
-    { id: 9 }
+    { id: 9 },
   );
   assert.deepEqual(plain(sent), [
     {
@@ -270,10 +353,7 @@ test('background script routes clicks to the right tab and frame', () => {
 
 test('background script ignores clicks from other menus', () => {
   const { clickListener, sent } = loadBackgroundScript();
-  clickListener(
-    { parentMenuItemId: 'other', menuItemId: 'quote' },
-    { id: 9 }
-  );
+  clickListener({ parentMenuItemId: 'other', menuItemId: 'quote' }, { id: 9 });
   clickListener({ parentMenuItemId: 'markdown-helper', menuItemId: 'bold' });
   assert.equal(sent.length, 0);
 });
@@ -289,7 +369,7 @@ test('background script logs message-delivery failures', async () => {
       targetElementId: 1,
       frameId: 0,
     },
-    { id: 4 }
+    { id: 4 },
   );
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(captured.errors.length, 1);
