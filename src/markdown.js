@@ -49,6 +49,28 @@ const MDHelper = (() => {
   // Inline span toggles (bold / italic / code span)
   // ------------------------------------------------------------------
 
+  /** Return whether a selection includes a complete marker pair. */
+  function hasIncludedMarkers(value, start, end, marker) {
+    const { open, close, guard } = marker;
+    const selection = value.slice(start, end);
+    if (selection.length < open.length + close.length) return false;
+    if (!selection.startsWith(open)) return false;
+    if (!selection.endsWith(close)) return false;
+    if (!guard) return true;
+    return guard(value, start, start + open.length, end - close.length, end);
+  }
+
+  /** Return whether a marker pair immediately surrounds a selection. */
+  function hasSurroundingMarkers(value, start, end, marker) {
+    const { open, close, guard } = marker;
+    const openStart = start - open.length;
+    if (openStart < 0) return false;
+    if (!value.startsWith(open, openStart)) return false;
+    if (!value.startsWith(close, end)) return false;
+    if (!guard) return true;
+    return guard(value, openStart, start, end, end + close.length);
+  }
+
   /**
    * Toggle a wrapping marker pair around the selection.
    *
@@ -73,13 +95,7 @@ const MDHelper = (() => {
       keepClose = '',
     } of detect) {
       // Markers included in the selection itself: **text**
-      if (
-        sel.length >= open.length + close.length &&
-        sel.startsWith(open) &&
-        sel.endsWith(close) &&
-        (!guard ||
-          guard(value, start, start + open.length, end - close.length, end))
-      ) {
+      if (hasIncludedMarkers(value, start, end, { open, close, guard })) {
         const inner = sel.slice(open.length, sel.length - close.length);
         const text = keepOpen + inner + keepClose;
         return singleEdit(start, end, text, {
@@ -88,13 +104,7 @@ const MDHelper = (() => {
         });
       }
       // Markers immediately surrounding the selection: **|text|**
-      if (
-        start - open.length >= 0 &&
-        value.startsWith(open, start - open.length) &&
-        value.startsWith(close, end) &&
-        (!guard ||
-          guard(value, start - open.length, start, end, end + close.length))
-      ) {
+      if (hasSurroundingMarkers(value, start, end, { open, close, guard })) {
         const text = keepOpen + sel + keepClose;
         return singleEdit(start - open.length, end + close.length, text, {
           start: start - open.length,
