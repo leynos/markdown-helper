@@ -47,6 +47,34 @@ function applyAll(value, result) {
   return MD.applyToString(value, result);
 }
 
+function seedFootnoteReferences(rand, text) {
+  // Seed the document with some existing numeric and named refs.
+  for (let j = randInt(rand, 0, 3); j > 0; j -= 1) {
+    text += `[^${pick(rand, [1, 2, 7, 'note'])}]`;
+  }
+  return text;
+}
+
+function assertFootnoteLabels(rand, text, caseIndex) {
+  let previous = 0;
+  for (let round = 0; round < 3; round += 1) {
+    const wordAt = text.indexOf(pick(rand, WORDS).split(' ')[0]);
+    if (wordAt < 0) return;
+    const result = MD.apply('footnote', text, wordAt, wordAt + 2);
+    const next = Number(MD.nextFootnoteLabel(text));
+    text = applyAll(text, result);
+    const labels = [...text.matchAll(/\[\^(\d+)\]:/g)].map((m) => Number(m[1]));
+    assert.ok(labels.includes(next), `definition missing (case ${caseIndex})`);
+    assert.equal(
+      new Set(labels).size,
+      labels.length,
+      `duplicate labels (case ${caseIndex})`,
+    );
+    assert.ok(next > previous, `labels not increasing (case ${caseIndex})`);
+    previous = next;
+  }
+}
+
 test('property: quoting then unquoting restores any unquoted text', () => {
   const rand = rng(0xbeef);
   for (let i = 0; i < RUNS; i += 1) {
@@ -117,29 +145,7 @@ test('property: code block wrap picks a fence longer than any inside', () => {
 test('property: footnote labels increase strictly and never collide', () => {
   const rand = rng(0xd1ce);
   for (let i = 0; i < RUNS; i += 1) {
-    let text = randomText(rand);
-    // Seed the document with some existing numeric and named refs.
-    for (let j = randInt(rand, 0, 3); j > 0; j -= 1) {
-      text += `[^${pick(rand, [1, 2, 7, 'note'])}]`;
-    }
-    let previous = 0;
-    for (let round = 0; round < 3; round += 1) {
-      const wordAt = text.indexOf(pick(rand, WORDS).split(' ')[0]);
-      if (wordAt < 0) break;
-      const result = MD.apply('footnote', text, wordAt, wordAt + 2);
-      const next = Number(MD.nextFootnoteLabel(text));
-      text = applyAll(text, result);
-      const labels = [...text.matchAll(/\[\^(\d+)\]:/g)].map((m) =>
-        Number(m[1]),
-      );
-      assert.ok(labels.includes(next), `definition missing (case ${i})`);
-      assert.equal(
-        new Set(labels).size,
-        labels.length,
-        `duplicate labels (case ${i})`,
-      );
-      assert.ok(next > previous, `labels not increasing (case ${i})`);
-      previous = next;
-    }
+    const text = seedFootnoteReferences(rand, randomText(rand));
+    assertFootnoteLabels(rand, text, i);
   }
 });
