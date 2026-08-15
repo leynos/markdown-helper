@@ -161,7 +161,7 @@ const MDHelper = (() => {
   function backtickRunAt(value, index, direction) {
     let run = 0;
     let i = index;
-    while (i >= 0 && i < value.length && value[i] === '`') {
+    while (value[i] === '`') {
       run += 1;
       i += direction;
     }
