@@ -85,6 +85,28 @@ class FakeInput extends FakeTextArea {
   }
 }
 
+/** Return the text an execCommand invocation would insert, if any. */
+function execCommandReplacement(command, text) {
+  if (command === 'delete') return '';
+  if (command === 'insertText' && text) return text;
+  return null;
+}
+
+/** Apply a successful fake execCommand edit and optionally emit native input. */
+function applyExecCommandEdit(target, replacement, emitInput) {
+  target.setRangeText(
+    replacement,
+    target.selectionStart,
+    target.selectionEnd,
+    'end',
+  );
+  if (emitInput) {
+    target.dispatchEvent(
+      new FakeEvent('input', { bubbles: true, isTrusted: true }),
+    );
+  }
+}
+
 /**
  * Load src/content.js into a sandbox wired to `target`.
  * execCommandOk controls whether the fake document.execCommand succeeds
@@ -113,34 +135,10 @@ function loadContentScript(
       execCommand(command, _ui, text) {
         captured.execCommands.push({ command, text });
         if (!execCommandOk) return false;
-        if (execCommandEdits && command === 'insertText' && text !== '') {
-          target.setRangeText(
-            text,
-            target.selectionStart,
-            target.selectionEnd,
-            'end',
-          );
-          if (execCommandEmitsInput) {
-            target.dispatchEvent(
-              new FakeEvent('input', { bubbles: true, isTrusted: true }),
-            );
-          }
-          return true;
-        }
-        if (execCommandEdits && command === 'delete') {
-          target.setRangeText(
-            '',
-            target.selectionStart,
-            target.selectionEnd,
-            'end',
-          );
-          if (execCommandEmitsInput) {
-            target.dispatchEvent(
-              new FakeEvent('input', { bubbles: true, isTrusted: true }),
-            );
-          }
-          return true;
-        }
+        if (!execCommandEdits) return true;
+        const replacement = execCommandReplacement(command, text);
+        if (replacement === null) return true;
+        applyExecCommandEdit(target, replacement, execCommandEmitsInput);
         return true;
       },
     },
