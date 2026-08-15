@@ -38,10 +38,10 @@ const MDHelper = (() => {
   }
 
   /** Build a single replacement and its resulting selection. */
-  function singleEdit(start, end, text, selStart, selEnd) {
+  function singleEdit(start, end, text, selection) {
     return {
       edits: [{ start, end, text }],
-      selection: { start: selStart, end: selEnd },
+      selection,
     };
   }
 
@@ -82,7 +82,10 @@ const MDHelper = (() => {
       ) {
         const inner = sel.slice(open.length, sel.length - close.length);
         const text = keepOpen + inner + keepClose;
-        return singleEdit(start, end, text, start, start + text.length);
+        return singleEdit(start, end, text, {
+          start,
+          end: start + text.length,
+        });
       }
       // Markers immediately surrounding the selection: **|text|**
       if (
@@ -93,24 +96,18 @@ const MDHelper = (() => {
           guard(value, start - open.length, start, end, end + close.length))
       ) {
         const text = keepOpen + sel + keepClose;
-        return singleEdit(
-          start - open.length,
-          end + close.length,
-          text,
-          start - open.length,
-          start - open.length + text.length,
-        );
+        return singleEdit(start - open.length, end + close.length, text, {
+          start: start - open.length,
+          end: start - open.length + text.length,
+        });
       }
     }
 
     const text = add.open + sel + add.close;
-    return singleEdit(
-      start,
-      end,
-      text,
-      start + add.open.length,
-      start + add.open.length + sel.length,
-    );
+    return singleEdit(start, end, text, {
+      start: start + add.open.length,
+      end: start + add.open.length + sel.length,
+    });
   }
 
   /** Toggle bold markers around the selected non-whitespace text. */
@@ -179,20 +176,20 @@ const MDHelper = (() => {
     // Selection includes its own backtick fence: `text` or `` te`xt ``
     const m = sel.match(/^(`+)( ?)([\s\S]*?)\2\1$/);
     if (m && !m[3].startsWith('`') && !m[3].endsWith('`')) {
-      return singleEdit(start, end, m[3], start, start + m[3].length);
+      return singleEdit(start, end, m[3], {
+        start,
+        end: start + m[3].length,
+      });
     }
 
     // Fence immediately surrounds the selection.
     const before = backtickRunAt(value, start - 1, -1);
     const after = backtickRunAt(value, end, 1);
     if (before > 0 && before === after && !sel.includes('`')) {
-      return singleEdit(
-        start - before,
-        end + after,
-        sel,
-        start - before,
-        start - before + sel.length,
-      );
+      return singleEdit(start - before, end + after, sel, {
+        start: start - before,
+        end: start - before + sel.length,
+      });
     }
 
     // Wrap: fence must be longer than any backtick run inside, and content
@@ -204,7 +201,10 @@ const MDHelper = (() => {
     const fence = '`'.repeat(longest + 1);
     const pad = sel.startsWith('`') || sel.endsWith('`') ? ' ' : '';
     const text = fence + pad + sel + pad + fence;
-    return singleEdit(start, end, text, start, start + text.length);
+    return singleEdit(start, end, text, {
+      start,
+      end: start + text.length,
+    });
   }
 
   // ------------------------------------------------------------------
@@ -234,13 +234,10 @@ const MDHelper = (() => {
     }
 
     const text = newLines.join('\n');
-    return singleEdit(
-      lineStart,
-      lineEnd,
-      text,
-      lineStart,
-      lineStart + text.length,
-    );
+    return singleEdit(lineStart, lineEnd, text, {
+      start: lineStart,
+      end: lineStart + text.length,
+    });
   }
 
   // ------------------------------------------------------------------
@@ -293,13 +290,10 @@ const MDHelper = (() => {
       fencesMatch(parseFence(lines[0]), parseFence(lines[lines.length - 1]))
     ) {
       const inner = lines.slice(1, -1).join('\n');
-      return singleEdit(
-        lineStart,
-        lineEnd,
-        inner,
-        lineStart,
-        lineStart + inner.length,
-      );
+      return singleEdit(lineStart, lineEnd, inner, {
+        start: lineStart,
+        end: lineStart + inner.length,
+      });
     }
 
     // Fence lines immediately above and below the selection.
@@ -325,13 +319,10 @@ const MDHelper = (() => {
 
     const fence = fenceFor(lines);
     const text = `${fence}\n${block}\n${fence}`;
-    return singleEdit(
-      lineStart,
-      lineEnd,
-      text,
-      lineStart,
-      lineStart + text.length,
-    );
+    return singleEdit(lineStart, lineEnd, text, {
+      start: lineStart,
+      end: lineStart + text.length,
+    });
   }
 
   // ------------------------------------------------------------------
