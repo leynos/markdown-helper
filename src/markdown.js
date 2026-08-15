@@ -52,15 +52,16 @@ const MDHelper = (() => {
   /**
    * Toggle a wrapping marker pair around the selection.
    *
-   * detect: array of { open, close, guard?, keepOpen?, keepClose? } marker
-   * pairs recognised for removal; guard(value, openStart, openEnd,
+   * options.detect: array of { open, close, guard?, keepOpen?, keepClose? }
+   * marker pairs recognised for removal; guard(value, openStart, openEnd,
    * closeStart, closeEnd) may veto a match given the marker spans (used so
    * italic "*" does not strip half of a bold "**"). keepOpen/keepClose are
    * what replaces the removed markers (default: nothing) — this lets italic
    * reduce combined "***text***" emphasis back to "**text**".
-   * add: { open, close } used when wrapping.
+   * options.add: { open, close } used when wrapping.
    */
-  function toggleWrap(value, start, end, detect, add) {
+  function toggleWrap(value, start, end, options) {
+    const { detect, add } = options;
     ({ start, end } = trimSelection(value, start, end));
     const sel = value.slice(start, end);
 
@@ -114,16 +115,13 @@ const MDHelper = (() => {
 
   /** Toggle bold markers around the selected non-whitespace text. */
   function toggleBold(value, start, end) {
-    return toggleWrap(
-      value,
-      start,
-      end,
-      [
+    return toggleWrap(value, start, end, {
+      detect: [
         { open: '**', close: '**' },
         { open: '__', close: '__' },
       ],
-      { open: '**', close: '**' },
-    );
+      add: { open: '**', close: '**' },
+    });
   }
 
   /** Toggle italic markers without stripping one half of bold markers. */
@@ -138,11 +136,8 @@ const MDHelper = (() => {
         value[closeEnd] !== marker &&
         (openEnd === closeStart ||
           (value[openEnd] !== marker && value[closeStart - 1] !== marker));
-    return toggleWrap(
-      value,
-      start,
-      end,
-      [
+    return toggleWrap(value, start, end, {
+      detect: [
         // Combined bold+italic: removing italic keeps the bold layer.
         {
           open: '***',
@@ -161,8 +156,8 @@ const MDHelper = (() => {
         { open: '*', close: '*', guard: notBold('*') },
         { open: '_', close: '_', guard: notBold('_') },
       ],
-      { open: '*', close: '*' },
-    );
+      add: { open: '*', close: '*' },
+    });
   }
 
   /** Measure the backtick run adjacent to an index in one direction. */
