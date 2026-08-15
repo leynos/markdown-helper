@@ -1,6 +1,7 @@
-.PHONY: all check-fmt lint typecheck test package clean
+.PHONY: all check-fmt lint typecheck test check-version stage package sign clean
 
 DIST := dist
+STAGE := $(DIST)/package
 XPI := $(DIST)/markdown-helper.xpi
 
 all: check-fmt lint typecheck test
@@ -17,11 +18,27 @@ typecheck:
 test:
 	node --test test/*.test.js
 
-package: test
-	mkdir -p $(DIST)
+# Fails unless VERSION matches every version the repository declares, so a
+# release tag can never ship a package that names a different version.
+check-version:
+	@test -n "$(VERSION)" || { echo 'set VERSION, e.g. make check-version VERSION=0.1.0'; exit 1; }
+	@node scripts/check-version.js $(VERSION)
+
+# Assemble exactly what ships, so `package` and `sign` cannot diverge.
+stage:
+	rm -rf $(STAGE)
+	mkdir -p $(STAGE)
+	cp -R src/. $(STAGE)/
+	rm -f $(STAGE)/globals.d.ts $(STAGE)/icons/icon-1024.png
+	cp LICENSE $(STAGE)/
+
+package: test stage
 	rm -f $(XPI)
-	cd src && zip -r ../$(XPI) manifest.json background.js content.js markdown.js icons -x 'icons/icon-1024.png'
-	zip -j $(XPI) LICENSE
+	cd $(STAGE) && zip -r ../../$(XPI) .
+
+# Signed by addons.mozilla.org; needs WEB_EXT_API_KEY and WEB_EXT_API_SECRET.
+sign: test stage
+	bunx web-ext sign --source-dir $(STAGE) --artifacts-dir $(DIST) --channel unlisted
 
 clean:
 	rm -rf $(DIST)

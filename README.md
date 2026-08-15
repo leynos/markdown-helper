@@ -102,9 +102,13 @@ make test      # run the unit tests (Node >= 18)
 make package   # run the tests, then build dist/markdown-helper.xpi
 ```
 
+Signed releases come from tagging `vX.Y.Z`: the `sign` workflow submits the
+package to addons.mozilla.org from a protected environment, so the API
+credential never touches a workstation.
+
 See the [user guide](docs/users-guide.md) for installation and command usage,
 and the [developer guide](docs/developers-guide.md) for architecture, commit
-gates, and packaging.
+gates, packaging, and signing.
 
 The interesting logic lives in `src/markdown.js` as pure functions shared
 between the content script and the test suite:
@@ -118,6 +122,9 @@ between the content script and the test suite:
 - `test/properties.test.js` — seeded property-based invariant tests
 - `test/extension.test.js` — behavioural tests for the menu and message
   wiring, run against stubbed browser APIs
+- `scripts/check-version.js` — release gate: the tag must match every declared
+  version
+- `.github/workflows/sign.yml` — tag-triggered AMO signing and release
 
 ______________________________________________________________________
 

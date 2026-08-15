@@ -1,0 +1,46 @@
+name: sign
+
+# Signing is the one job that touches the AMO credential, so it runs only for
+# release tags and only after the `release` environment's reviewer approves.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  sign:
+    name: Sign and publish the XPI
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install the pinned tools
+        run: bun install --frozen-lockfile
+
+      - name: Check the tag matches the declared version
+        run: make check-version VERSION="${GITHUB_REF_NAME#v}"
+
+      - name: Sign with addons.mozilla.org
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_API_KEY }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_API_SECRET }}
+        run: make sign
+
+      - name: Publish the signed XPI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.xpi --generate-notes

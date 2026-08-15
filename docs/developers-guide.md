@@ -89,6 +89,48 @@ Load the XPI temporarily through `about:debugging#/runtime/this-firefox` and
 exercise each command in both a `<textarea>` and a supported single-line input
 before publishing a release.
 
+## Sign a release
+
+Firefox installs an extension permanently only when Mozilla has signed it. The
+project holds no signing key: addons.mozilla.org (AMO) signs the package on its
+own infrastructure. What the project does hold is an AMO API key and secret,
+used to mint the short-lived JSON Web Tokens that authenticate submissions.
+
+That credential never belongs on a developer workstation. The
+[`sign` workflow](../.github/workflows/sign.yml) runs on a `v*` tag, reads the
+credential from the protected `release` environment, and signs on a disposable
+runner. The environment requires a reviewer's approval and accepts `v*` tags
+only, so no push can sign anything unattended.
+
+To cut a release:
+
+1. Raise `version` in both `src/manifest.json` and `package.json`. AMO refuses
+   to sign a version it has already seen.
+2. Merge the change, then tag the merge commit `vX.Y.Z` and push the tag.
+3. Approve the pending `release` deployment in the run's page on GitHub.
+
+The workflow then runs `make check-version` to confirm the tag agrees with both
+declared versions, runs `make sign`, and attaches the signed XPI to a GitHub
+release.
+
+`make sign` signs the same staged directory `make package` archives, so the
+signed and unsigned artefacts always hold identical files. It signs on the
+`unlisted` channel, which self-distributes: AMO returns the signed XPI without
+publishing a listing. Signing needs `WEB_EXT_API_KEY` and `WEB_EXT_API_SECRET`
+in the environment, which is why running the target locally fails by design.
+
+Issue and revoke credentials on the
+[AMO key management page](https://addons.mozilla.org/developers/addon/api/key/).
+The secret is shown once, at creation. Rotating it means revoking the old pair
+there and writing the new one straight into the GitHub environment:
+
+```shell
+gh secret set AMO_API_KEY --env release
+gh secret set AMO_API_SECRET --env release
+```
+
+Both commands prompt for the value, so it never enters shell history.
+
 ## See also
 
 - [User guide](users-guide.md)

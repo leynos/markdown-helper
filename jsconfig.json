@@ -3,6 +3,7 @@
     "allowJs": true,
     "checkJs": true,
     "lib": ["DOM", "ES2022"],
+    "maxNodeModuleJsDepth": 0,
     "module": "commonjs",
     "noEmit": true,
     "noImplicitAny": false,
