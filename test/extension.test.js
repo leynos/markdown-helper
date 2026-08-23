@@ -86,21 +86,22 @@ class FakeInput extends FakeTextArea {
 }
 
 /** Return the text an execCommand invocation would insert, if any. */
-function execCommandReplacement(command, text) {
+function execCommandReplacement(command, text, execCommandEdits) {
+  if (!execCommandEdits) return null;
   if (command === 'delete') return '';
-  if (command === 'insertText' && text) return text;
+  if (command === 'insertText' && text !== '') return text;
   return null;
 }
 
 /** Apply a successful fake execCommand edit and optionally emit native input. */
-function applyExecCommandEdit(target, replacement, emitInput) {
+function applyNativeEdit(target, replacement, execCommandEmitsInput) {
   target.setRangeText(
     replacement,
     target.selectionStart,
     target.selectionEnd,
     'end',
   );
-  if (emitInput) {
+  if (execCommandEmitsInput) {
     target.dispatchEvent(
       new FakeEvent('input', { bubbles: true, isTrusted: true }),
     );
@@ -135,10 +136,13 @@ function loadContentScript(
       execCommand(command, _ui, text) {
         captured.execCommands.push({ command, text });
         if (!execCommandOk) return false;
-        if (!execCommandEdits) return true;
-        const replacement = execCommandReplacement(command, text);
+        const replacement = execCommandReplacement(
+          command,
+          text,
+          execCommandEdits,
+        );
         if (replacement === null) return true;
-        applyExecCommandEdit(target, replacement, execCommandEmitsInput);
+        applyNativeEdit(target, replacement, execCommandEmitsInput);
         return true;
       },
     },
