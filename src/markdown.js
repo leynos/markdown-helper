@@ -178,27 +178,46 @@ const MDHelper = (() => {
     return run;
   }
 
+  /** Return unfenced code-span content included in a selection, if valid. */
+  function includedCodeSpanContent(selection) {
+    const match = selection.match(/^(`+)( ?)([\s\S]*?)\2\1$/);
+    if (!match) return null;
+    const content = match[3];
+    if (content.startsWith('`')) return null;
+    if (content.endsWith('`')) return null;
+    return content;
+  }
+
+  /** Return the matching fence length around a selection, if valid. */
+  function surroundingCodeSpanFence(value, start, end, selection) {
+    const left = backtickRunAt(value, start - 1, -1);
+    const right = backtickRunAt(value, end, 1);
+    if (left === 0) return 0;
+    if (left !== right) return 0;
+    if (selection.includes('`')) return 0;
+    return left;
+  }
+
   /** Toggle a GFM code span, choosing a fence longer than its contents. */
   function toggleCodeSpan(value, start, end) {
     ({ start, end } = trimSelection(value, start, end));
     const sel = value.slice(start, end);
 
     // Selection includes its own backtick fence: `text` or `` te`xt ``
-    const m = sel.match(/^(`+)( ?)([\s\S]*?)\2\1$/);
-    if (m && !m[3].startsWith('`') && !m[3].endsWith('`')) {
-      return singleEdit(start, end, m[3], {
+    const content = includedCodeSpanContent(sel);
+    if (content !== null) {
+      return singleEdit(start, end, content, {
         start,
-        end: start + m[3].length,
+        end: start + content.length,
       });
     }
 
     // Fence immediately surrounds the selection.
-    const before = backtickRunAt(value, start - 1, -1);
-    const after = backtickRunAt(value, end, 1);
-    if (before > 0 && before === after && !sel.includes('`')) {
-      return singleEdit(start - before, end + after, sel, {
-        start: start - before,
-        end: start - before + sel.length,
+    const surroundingFence = surroundingCodeSpanFence(value, start, end, sel);
+    if (surroundingFence !== 0) {
+      return singleEdit(start - surroundingFence, end + surroundingFence, sel, {
+        start: start - surroundingFence,
+        end: start - surroundingFence + sel.length,
       });
     }
 
