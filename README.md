@@ -107,6 +107,7 @@ package to addons.mozilla.org from a protected environment, so the API
 credential never touches a workstation.
 
 See the [user guide](docs/users-guide.md) for installation and command usage,
+the [0.2 migration guide](docs/migration-0.2.md) for the extension workflow,
 and the [developer guide](docs/developers-guide.md) for architecture, commit
 gates, packaging, and signing.
 

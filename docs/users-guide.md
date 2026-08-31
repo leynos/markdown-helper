@@ -5,7 +5,7 @@ when a site accepts Markdown but provides no formatting toolbar.
 
 ## Install the extension temporarily
 
-You need Firefox and a local copy of this repository.
+Firefox and a local copy of this repository are required.
 
 1. Open `about:debugging#/runtime/this-firefox` in Firefox.
 2. Select **Load Temporary Add-on…**.
@@ -55,4 +55,5 @@ supported editable field. If a temporary installation disappeared, reload
 ## See also
 
 - [Developer guide](developers-guide.md)
+- [Migration guide for 0.2](migration-0.2.md)
 - [Undo-preserving edit boundary](adr/0001-preserve-native-undo.md)

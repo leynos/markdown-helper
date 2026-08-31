@@ -9,7 +9,8 @@
 In the context of applying Markdown transformations to Firefox text fields,
 facing the requirement that users can undo a context-menu edit through the
 field's native history,
-we decided for a synchronous content-script edit boundary that attempts
+the decision was to use a synchronous content-script edit boundary that
+attempts
 `document.execCommand()` and verifies its result before using
 `setRangeText()`,
 and against direct value assignment, unconditional `setRangeText()`, or an
@@ -26,4 +27,4 @@ provides an equivalent undo-preserving plain-text editing API.
 - Each replacement observes native `input` delivery and synthesizes an event
   only when the completed edit remained silent.
 - Wiring tests cover native success, silent native success, no-op verification,
-  and fallback behavior.
+  and fallback behaviour.

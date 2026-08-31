@@ -30,10 +30,12 @@ The extension uses three browser scripts:
 3. `src/markdown.js` calculates immutable text edits and the selection that
    should remain after those edits.
 
-`MDHelper.apply(command, value, start, end)` is the transformation API. It
-returns `null` for a no-op or a result with non-overlapping `edits` in original
-string coordinates plus the final `selection`. The content script applies
-edits from the highest offset to the lowest so earlier ranges stay valid.
+`MDHelper.apply({ command, value, start, end })` is the transformation API. The
+request fields are read-only, and `command` is one of `quote`, `bold`, `italic`,
+`code-span`, `code-block` or `footnote`. It returns `null` for a no-op or a
+result with non-overlapping `edits` in original string coordinates plus the
+final `selection`. The content script applies edits from the highest offset to
+the lowest so earlier ranges stay valid.
 
 The content script attempts `document.execCommand()` first because Firefox can
 place that edit on the field's native undo stack. It verifies the resulting
