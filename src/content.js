@@ -5,7 +5,11 @@
  */
 
 (() => {
-  /** Return whether an element supports Markdown Helper's plain-text edits. */
+  /**
+   * Return whether an element supports Markdown Helper's plain-text edits.
+   * @param {object | null} el Candidate target element.
+   * @returns {el is HTMLTextAreaElement | HTMLInputElement} Whether it is editable.
+   */
   function isTextField(el) {
     if (!el) return false;
     if (el instanceof HTMLTextAreaElement) return true;
@@ -15,7 +19,13 @@
     return false;
   }
 
-  /** Replace one range while preserving native undo and emitting one input event. */
+  /**
+   * Replace one range while preserving native undo and emitting one input event.
+   * @param {HTMLTextAreaElement | HTMLInputElement} el Editable element.
+   * @param {number} start Replacement start.
+   * @param {number} end Replacement end.
+   * @param {string} text Replacement text.
+   */
   function replaceRange(el, start, end, text) {
     const expected = el.value.slice(0, start) + text + el.value.slice(end);
     let inputEmitted = false;
@@ -47,7 +57,11 @@
 
   const TAG = '[markdown-helper]';
 
-  /** Apply a command synchronously to the field associated with a menu click. */
+  /**
+   * Apply a command synchronously to the field associated with a menu click.
+   * @param {object | null} el Candidate target element.
+   * @param {MarkdownCommand} command Markdown command.
+   */
   function handleMenuClick(el, command) {
     if (!isTextField(el)) {
       console.debug(TAG, 'ignoring', command, 'on a non-text-field target');
@@ -55,12 +69,14 @@
     }
 
     try {
-      const result = MDHelper.apply(
+      const start = el.selectionStart ?? 0;
+      const end = el.selectionEnd ?? start;
+      const result = MDHelper.apply({
         command,
-        el.value,
-        el.selectionStart,
-        el.selectionEnd,
-      );
+        value: el.value,
+        start,
+        end,
+      });
       if (!result) {
         console.debug(TAG, command, 'was a no-op for the current selection');
         return;
@@ -77,12 +93,17 @@
     }
   }
 
-  /** Resolve a context-menu message to its target and apply it immediately. */
+  /**
+   * Resolve a context-menu message to its target and apply it immediately.
+   * @param {{ type?: unknown, targetElementId?: unknown, command?: unknown }} msg Message.
+   */
   function handleMessage(msg) {
     if (msg?.type !== 'markdown-helper') return;
 
-    const el = browser.menus.getTargetElement(msg.targetElementId);
-    handleMenuClick(el, msg.command);
+    const el = browser.menus.getTargetElement(
+      /** @type {number} */ (msg.targetElementId),
+    );
+    handleMenuClick(el, /** @type {MarkdownCommand} */ (msg.command));
   }
 
   browser.runtime.onMessage.addListener(handleMessage);

@@ -32,7 +32,11 @@
     });
   }
 
-  /** Relay a Markdown menu click to the originating content script. */
+  /**
+   * Relay a Markdown menu click to the originating content script.
+   * @param {browser.menus.OnClickData} info Menu-click metadata.
+   * @param {browser.tabs.Tab} tab Originating tab.
+   */
   function handleMenuClick(info, tab) {
     if (typeof tab?.id !== 'number') return;
     if (info.parentMenuItemId !== 'markdown-helper') return;

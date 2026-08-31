@@ -15,7 +15,7 @@ function run(command, marked) {
   const end = marked.indexOf('»') - 1;
   assert.ok(start >= 0 && end >= start, 'test input needs «…» markers');
   const value = marked.replace('«', '').replace('»', '');
-  const result = MD.apply(command, value, start, end);
+  const result = MD.apply({ command, value, start, end });
   return MD.applyToString(value, result);
 }
 
@@ -94,10 +94,15 @@ test('italic on combined emphasis removes only the italic layer', () => {
 });
 
 test('empty-selection emphasis markers toggle back off', () => {
-  const r1 = MD.apply('italic', 'ab', 1, 1);
+  const r1 = MD.apply({ command: 'italic', value: 'ab', start: 1, end: 1 });
   const once = MD.applyToString('ab', r1);
   assert.equal(once, 'a**b');
-  const r2 = MD.apply('italic', once, r1.selection.start, r1.selection.end);
+  const r2 = MD.apply({
+    command: 'italic',
+    value: once,
+    start: r1.selection.start,
+    end: r1.selection.end,
+  });
   assert.equal(MD.applyToString(once, r2), 'ab');
 });
 
@@ -125,6 +130,17 @@ test('code span handles content containing backticks', () => {
 
 test('code span pads content that starts with a backtick', () => {
   assert.equal(run('code-span', 'tick «`x» end'), 'tick `` `x `` end');
+});
+
+test('code span handles an adversarial unmatched backtick run', () => {
+  const value = `${'`'.repeat(10_000)}x`;
+  const result = MD.apply({
+    command: 'code-span',
+    value,
+    start: 0,
+    end: value.length,
+  });
+  assert.equal(result.edits[0].text.length, 30_005);
 });
 
 // ----------------------------------------------------------- code block
@@ -194,6 +210,21 @@ test('footnote ignores non-numeric labels but never collides', () => {
   );
 });
 
+test('footnote labels increment exactly beyond Number.MAX_SAFE_INTEGER', () => {
+  const value = 'Already noted[^9007199254740992] and this too.';
+  const start = value.indexOf('this');
+  const result = MD.apply({
+    command: 'footnote',
+    value,
+    start,
+    end: start + 'this too'.length,
+  });
+  assert.equal(
+    MD.applyToString(value, result),
+    'Already noted[^9007199254740992] and [^9007199254740993].\n\n[^9007199254740993]: this too\n',
+  );
+});
+
 test('footnote indents continuation lines', () => {
   assert.equal(
     run('footnote', 'Take «line one\nline two» away.'),
@@ -203,7 +234,7 @@ test('footnote indents continuation lines', () => {
 
 test('footnote with whitespace-only selection is a no-op', () => {
   const value = 'a   b';
-  const result = MD.apply('footnote', value, 1, 4);
+  const result = MD.apply({ command: 'footnote', value, start: 1, end: 4 });
   assert.equal(MD.applyToString(value, result ?? { edits: [] }), value);
   assert.equal(result, null);
 });
@@ -211,5 +242,7 @@ test('footnote with whitespace-only selection is a no-op', () => {
 // ---------------------------------------------------------------- misc
 
 test('unknown command throws', () => {
-  assert.throws(() => MD.apply('nope', 'x', 0, 1));
+  assert.throws(() =>
+    MD.apply({ command: 'nope', value: 'x', start: 0, end: 1 }),
+  );
 });

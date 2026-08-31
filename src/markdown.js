@@ -14,6 +14,11 @@
  */
 
 const MDHelper = (() => {
+  /** @typedef {{ char: string, length: number, info: string }} Fence */
+  /** @typedef {(value: string, openStart: number, openEnd: number, closeStart: number, closeEnd: number) => boolean} MarkerGuard */
+  /** @typedef {{ open: string, close: string, guard?: MarkerGuard, keepOpen?: string, keepClose?: string }} MarkerPair */
+  /** @typedef {{ detect: MarkerPair[], add: { open: string, close: string } }} ToggleWrapOptions */
+
   // ------------------------------------------------------------------
   // Shared helpers
   // ------------------------------------------------------------------
@@ -21,6 +26,10 @@ const MDHelper = (() => {
   /**
    * Expand [start, end) to whole-line boundaries. A selection ending just
    * after a newline is treated as ending on the previous line.
+   * @param {string} value Source text.
+   * @param {number} start Selection start.
+   * @param {number} end Selection end.
+   * @returns {{ lineStart: number, lineEnd: number }} Whole-line bounds.
    */
   function lineBounds(value, start, end) {
     if (end > start && value[end - 1] === '\n') end -= 1;
@@ -30,14 +39,27 @@ const MDHelper = (() => {
     return { lineStart, lineEnd };
   }
 
-  /** Shrink a selection so it excludes leading/trailing whitespace. */
+  /**
+   * Shrink a selection so it excludes leading/trailing whitespace.
+   * @param {string} value Source text.
+   * @param {number} start Selection start.
+   * @param {number} end Selection end.
+   * @returns {{ start: number, end: number }} Trimmed selection.
+   */
   function trimSelection(value, start, end) {
     while (start < end && /\s/.test(value[start])) start += 1;
     while (end > start && /\s/.test(value[end - 1])) end -= 1;
     return { start, end };
   }
 
-  /** Build a single replacement and its resulting selection. */
+  /**
+   * Build a single replacement and its resulting selection.
+   * @param {number} start Replacement start.
+   * @param {number} end Replacement end.
+   * @param {string} text Replacement text.
+   * @param {{ start: number, end: number }} selection Resulting selection.
+   * @returns {MarkdownResult} Edit result.
+   */
   function singleEdit(start, end, text, selection) {
     return {
       edits: [{ start, end, text }],
@@ -49,7 +71,14 @@ const MDHelper = (() => {
   // Inline span toggles (bold / italic / code span)
   // ------------------------------------------------------------------
 
-  /** Return whether a selection includes a complete marker pair. */
+  /**
+   * Return whether a selection includes a complete marker pair.
+   * @param {string} value Source text.
+   * @param {number} start Selection start.
+   * @param {number} end Selection end.
+   * @param {MarkerPair} marker Marker pair to inspect.
+   * @returns {boolean} Whether the markers are included.
+   */
   function hasIncludedMarkers(value, start, end, marker) {
     const { open, close, guard } = marker;
     const selection = value.slice(start, end);
@@ -60,7 +89,14 @@ const MDHelper = (() => {
     return guard(value, start, start + open.length, end - close.length, end);
   }
 
-  /** Return whether a marker pair immediately surrounds a selection. */
+  /**
+   * Return whether a marker pair immediately surrounds a selection.
+   * @param {string} value Source text.
+   * @param {number} start Selection start.
+   * @param {number} end Selection end.
+   * @param {MarkerPair} marker Marker pair to inspect.
+   * @returns {boolean} Whether the markers surround the selection.
+   */
   function hasSurroundingMarkers(value, start, end, marker) {
     const { open, close, guard } = marker;
     const openStart = start - open.length;
@@ -75,12 +111,19 @@ const MDHelper = (() => {
    * Toggle a wrapping marker pair around the selection.
    *
    * options.detect: array of { open, close, guard?, keepOpen?, keepClose? }
-   * marker pairs recognised for removal; guard(value, openStart, openEnd,
+   * marker pairs recognized for removal; guard(value, openStart, openEnd,
    * closeStart, closeEnd) may veto a match given the marker spans (used so
    * italic "*" does not strip half of a bold "**"). keepOpen/keepClose are
    * what replaces the removed markers (default: nothing) — this lets italic
    * reduce combined "***text***" emphasis back to "**text**".
    * options.add: { open, close } used when wrapping.
+   */
+  /**
+   * @param {string} value Source text.
+   * @param {number} start Selection start.
+   * @param {number} end Selection end.
+   * @param {ToggleWrapOptions} options Marker configuration.
+   * @returns {MarkdownResult} Edit result.
    */
   function toggleWrap(value, start, end, options) {
     const { detect, add } = options;
@@ -120,7 +163,13 @@ const MDHelper = (() => {
     });
   }
 
-  /** Toggle bold markers around the selected non-whitespace text. */
+  /**
+   * Toggle bold markers around the selected non-whitespace text.
+   * @param {string} value Source text.
+   * @param {number} start Selection start.
+   * @param {number} end Selection end.
+   * @returns {MarkdownResult} Edit result.
+   */
   function toggleBold(value, start, end) {
     return toggleWrap(value, start, end, {
       detect: [
@@ -131,12 +180,19 @@ const MDHelper = (() => {
     });
   }
 
-  /** Toggle italic markers without stripping one half of bold markers. */
+  /**
+   * Toggle italic markers without stripping one half of bold markers.
+   * @param {string} value Source text.
+   * @param {number} start Selection start.
+   * @param {number} end Selection end.
+   * @returns {MarkdownResult} Edit result.
+   */
   function toggleItalic(value, start, end) {
     // A lone "*" only counts as italic when neither marker abuts another
     // "*" (which would make it part of a "**" bold run). When the wrapped
     // text is empty the markers abut each other, so only the outer sides
     // are checked.
+    /** @param {string} marker @returns {MarkerGuard} Guard for bold runs. */
     const notBold =
       (marker) => (value, openStart, openEnd, closeStart, closeEnd) =>
         value[openStart - 1] !== marker &&
@@ -167,7 +223,13 @@ const MDHelper = (() => {
     });
   }
 
-  /** Measure the backtick run adjacent to an index in one direction. */
+  /**
+   * Measure the backtick run adjacent to an index in one direction.
+   * @param {string} value Source text.
+   * @param {number} index Starting index.
+   * @param {number} direction Scan direction.
+   * @returns {number} Run length.
+   */
   function backtickRunAt(value, index, direction) {
     let run = 0;
     let i = index;
@@ -178,17 +240,54 @@ const MDHelper = (() => {
     return run;
   }
 
-  /** Return unfenced code-span content included in a selection, if valid. */
+  /**
+   * Return unfenced code-span content included in a selection, if valid.
+   * @param {string} selection Selected text.
+   * @returns {string | null} Unfenced content when valid.
+   */
   function includedCodeSpanContent(selection) {
-    const match = selection.match(/^(`+)( ?)([\s\S]*?)\2\1$/);
-    if (!match) return null;
-    const content = match[3];
+    const fenceLength = backtickRunAt(selection, 0, 1);
+    if (fenceLength === 0) return null;
+
+    const contentStart = fenceLength;
+    const padded = codeSpanContent(selection, fenceLength, contentStart + 1);
+    const content =
+      padded === null
+        ? codeSpanContent(selection, fenceLength, contentStart)
+        : padded;
+    if (content === null) return null;
     if (content.startsWith('`')) return null;
     if (content.endsWith('`')) return null;
     return content;
   }
 
-  /** Return the matching fence length around a selection, if valid. */
+  /**
+   * Extract code-span content using a candidate content start.
+   * @param {string} selection Selected text.
+   * @param {number} fenceLength Opening and closing fence length.
+   * @param {number} contentStart Candidate content start.
+   * @returns {string | null} Extracted content when the fences match.
+   */
+  function codeSpanContent(selection, fenceLength, contentStart) {
+    const padded = contentStart === fenceLength + 1;
+    const closeStart = selection.length - fenceLength - Number(padded);
+    if (contentStart > closeStart) return null;
+    if (padded && selection[fenceLength] !== ' ') return null;
+    if (padded && selection[closeStart] !== ' ') return null;
+    for (let i = selection.length - fenceLength; i < selection.length; i += 1) {
+      if (selection[i] !== '`') return null;
+    }
+    return selection.slice(contentStart, closeStart);
+  }
+
+  /**
+   * Return the matching fence length around a selection, if valid.
+   * @param {string} value Source text.
+   * @param {number} start Selection start.
+   * @param {number} end Selection end.
+   * @param {string} selection Selected text.
+   * @returns {number} Matching fence length, or zero.
+   */
   function surroundingCodeSpanFence(value, start, end, selection) {
     const left = backtickRunAt(value, start - 1, -1);
     const right = backtickRunAt(value, end, 1);
@@ -198,7 +297,13 @@ const MDHelper = (() => {
     return left;
   }
 
-  /** Toggle a GFM code span, choosing a fence longer than its contents. */
+  /**
+   * Toggle a GFM code span, choosing a fence longer than its contents.
+   * @param {string} value Source text.
+   * @param {number} start Selection start.
+   * @param {number} end Selection end.
+   * @returns {MarkdownResult} Edit result.
+   */
   function toggleCodeSpan(value, start, end) {
     ({ start, end } = trimSelection(value, start, end));
     const sel = value.slice(start, end);
@@ -240,7 +345,13 @@ const MDHelper = (() => {
   // Block quote toggle
   // ------------------------------------------------------------------
 
-  /** Toggle one block-quote level across every selected line. */
+  /**
+   * Toggle one block-quote level across every selected line.
+   * @param {string} value Source text.
+   * @param {number} start Selection start.
+   * @param {number} end Selection end.
+   * @returns {MarkdownResult} Edit result.
+   */
   function toggleQuote(value, start, end) {
     const { lineStart, lineEnd } = lineBounds(value, start, end);
     const block = value.slice(lineStart, lineEnd);
@@ -273,7 +384,11 @@ const MDHelper = (() => {
   // Fenced code block toggle
   // ------------------------------------------------------------------
 
-  /** Parse a fence line into { char, length, info }, or null. */
+  /**
+   * Parse a fence line into { char, length, info }, or null.
+   * @param {string} line Fence line.
+   * @returns {Fence | null} Parsed fence.
+   */
   function parseFence(line) {
     const m = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
     if (!m) return null;
@@ -283,6 +398,9 @@ const MDHelper = (() => {
   /**
    * A closing fence must use the same character as the opening fence, be at
    * least as long, and carry no info string (CommonMark fence rules).
+   * @param {Fence | null} open Opening fence.
+   * @param {Fence | null} close Closing fence.
+   * @returns {boolean} Whether the fences match.
    */
   function fencesMatch(open, close) {
     return (
@@ -297,6 +415,8 @@ const MDHelper = (() => {
   /**
    * Build a backtick fence longer than any backtick fence line inside the
    * block, so embedded Markdown examples cannot terminate it early.
+   * @param {string[]} lines Block lines.
+   * @returns {string} Fence marker.
    */
   function fenceFor(lines) {
     let longest = 2;
@@ -307,7 +427,13 @@ const MDHelper = (() => {
     return '`'.repeat(longest + 1);
   }
 
-  /** Toggle a fenced code block around the selected whole lines. */
+  /**
+   * Toggle a fenced code block around the selected whole lines.
+   * @param {string} value Source text.
+   * @param {number} start Selection start.
+   * @param {number} end Selection end.
+   * @returns {MarkdownResult} Edit result.
+   */
   function toggleCodeBlock(value, start, end) {
     const { lineStart, lineEnd } = lineBounds(value, start, end);
     const block = value.slice(lineStart, lineEnd);
@@ -358,20 +484,32 @@ const MDHelper = (() => {
   // GFM footnote
   // ------------------------------------------------------------------
 
-  /** Return the first numeric footnote label above every existing label. */
+  /**
+   * Return the first numeric footnote label above every existing label.
+   * @param {string} value Source text.
+   * @returns {string} Next decimal label.
+   */
   function nextFootnoteLabel(value) {
-    let next = 1;
+    let next = 1n;
     const re = /\[\^([^\]\s]+)\]/g;
     let m = re.exec(value);
     while (m !== null) {
-      const n = Number(m[1]);
-      if (Number.isInteger(n) && n >= next) next = n + 1;
+      if (/^\d+$/.test(m[1])) {
+        const n = BigInt(m[1]);
+        if (n >= next) next = n + 1n;
+      }
       m = re.exec(value);
     }
     return String(next);
   }
 
-  /** Replace selected text with a reference and append its definition. */
+  /**
+   * Replace selected text with a reference and append its definition.
+   * @param {string} value Source text.
+   * @param {number} start Selection start.
+   * @param {number} end Selection end.
+   * @returns {MarkdownResult | null} Edit result, or null for an empty selection.
+   */
   function makeFootnote(value, start, end) {
     ({ start, end } = trimSelection(value, start, end));
     if (start === end) return null;
@@ -420,14 +558,23 @@ const MDHelper = (() => {
     footnote: makeFootnote,
   };
 
-  /** Apply a named Markdown command to a selection. */
-  function apply(command, value, start, end) {
+  /**
+   * Apply a named Markdown command to a selection.
+   * @param {MarkdownRequest} request Command and selection request.
+   * @returns {MarkdownResult | null} Edit result.
+   */
+  function apply({ command, value, start, end }) {
     const fn = commands[command];
     if (!fn) throw new Error(`Unknown command: ${command}`);
     return fn(value, start, end);
   }
 
-  /** Apply a result to a plain string (used by tests). */
+  /**
+   * Apply a result to a plain string (used by tests).
+   * @param {string} value Source text.
+   * @param {MarkdownResult | null} result Edit result.
+   * @returns {string} Edited text.
+   */
   function applyToString(value, result) {
     if (!result) return value;
     const edits = [...result.edits].sort((a, b) => b.start - a.start);

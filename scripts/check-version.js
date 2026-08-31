@@ -1,4 +1,5 @@
-/*
+/**
+ * @file
  * Fails unless every version the repository declares matches the one given on
  * the command line. The release workflow passes the tag name so a mistyped or
  * unbumped version aborts before anything reaches addons.mozilla.org, which
@@ -11,6 +12,11 @@ const expected = process.argv[2];
 
 if (!expected) {
   console.error('usage: node scripts/check-version.js <version>');
+  process.exit(2);
+}
+
+if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(expected)) {
+  console.error('version must use major.minor.patch decimal notation');
   process.exit(2);
 }
 

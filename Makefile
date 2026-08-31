@@ -21,8 +21,13 @@ test:
 # Fails unless VERSION matches every version the repository declares, so a
 # release tag can never ship a package that names a different version.
 check-version:
-	@test -n "$(VERSION)" || { echo 'set VERSION, e.g. make check-version VERSION=0.1.0'; exit 1; }
-	@node scripts/check-version.js $(VERSION)
+	@test -n "$$VERSION" || { echo 'set VERSION, e.g. make check-version VERSION=0.1.0'; exit 1; }
+	@node scripts/check-version.js "$${VERSION#v}"
+
+# Build the XPI after its prerequisite tests have passed.
+assemble: stage
+	rm -f $(XPI)
+	cd $(STAGE) && zip -r ../../$(XPI) .
 
 # Assemble exactly what ships, so `package` and `sign` cannot diverge.
 stage:
@@ -32,9 +37,7 @@ stage:
 	rm -f $(STAGE)/globals.d.ts $(STAGE)/icons/icon-1024.png
 	cp LICENSE $(STAGE)/
 
-package: test stage
-	rm -f $(XPI)
-	cd $(STAGE) && zip -r ../../$(XPI) .
+package: test assemble
 
 # Signed by addons.mozilla.org; needs WEB_EXT_API_KEY and WEB_EXT_API_SECRET.
 sign: test stage

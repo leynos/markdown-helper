@@ -60,7 +60,12 @@ function assertFootnoteLabels(rand, text, caseIndex) {
   for (let round = 0; round < 3; round += 1) {
     const wordAt = text.indexOf(pick(rand, WORDS).split(' ')[0]);
     if (wordAt < 0) return;
-    const result = MD.apply('footnote', text, wordAt, wordAt + 2);
+    const result = MD.apply({
+      command: 'footnote',
+      value: text,
+      start: wordAt,
+      end: wordAt + 2,
+    });
     const next = Number(MD.nextFootnoteLabel(text));
     text = applyAll(text, result);
     const labels = [...text.matchAll(/\[\^(\d+)\]:/g)].map((m) => Number(m[1]));
@@ -81,12 +86,22 @@ test('property: quoting then unquoting restores any unquoted text', () => {
     // Guarantee at least one non-blank, unquoted line so the first toggle
     // adds a level (generated lines never start with ">").
     const text = `${randomText(rand)}\n${pick(rand, WORDS)}`;
-    const r1 = MD.apply('quote', text, 0, text.length);
+    const r1 = MD.apply({
+      command: 'quote',
+      value: text,
+      start: 0,
+      end: text.length,
+    });
     const quoted = applyAll(text, r1);
     for (const line of quoted.split('\n')) {
       assert.match(line, /^>/, `line not quoted: ${JSON.stringify(line)}`);
     }
-    const r2 = MD.apply('quote', quoted, r1.selection.start, r1.selection.end);
+    const r2 = MD.apply({
+      command: 'quote',
+      value: quoted,
+      start: r1.selection.start,
+      end: r1.selection.end,
+    });
     assert.equal(applyAll(quoted, r2), text, `seed case ${i}`);
   }
 });
@@ -99,9 +114,14 @@ test('property: bold and italic double-toggle is the identity', () => {
     const b = randInt(rand, 0, text.length);
     const [start, end] = a <= b ? [a, b] : [b, a];
     for (const command of ['bold', 'italic']) {
-      const r1 = MD.apply(command, text, start, end);
+      const r1 = MD.apply({ command, value: text, start, end });
       const once = applyAll(text, r1);
-      const r2 = MD.apply(command, once, r1.selection.start, r1.selection.end);
+      const r2 = MD.apply({
+        command,
+        value: once,
+        start: r1.selection.start,
+        end: r1.selection.end,
+      });
       assert.equal(applyAll(once, r2), text, `${command} seed case ${i}`);
     }
   }
@@ -118,7 +138,12 @@ test('property: code block wrap picks a fence longer than any inside', () => {
       randomText(rand, codeLine),
       pick(rand, WORDS),
     ].join('\n');
-    const r1 = MD.apply('code-block', text, 0, text.length);
+    const r1 = MD.apply({
+      command: 'code-block',
+      value: text,
+      start: 0,
+      end: text.length,
+    });
     const wrapped = applyAll(text, r1);
     const lines = wrapped.split('\n');
     const fence = lines[0];
@@ -132,12 +157,12 @@ test('property: code block wrap picks a fence longer than any inside', () => {
         );
       }
     }
-    const r2 = MD.apply(
-      'code-block',
-      wrapped,
-      r1.selection.start,
-      r1.selection.end,
-    );
+    const r2 = MD.apply({
+      command: 'code-block',
+      value: wrapped,
+      start: r1.selection.start,
+      end: r1.selection.end,
+    });
     assert.equal(applyAll(wrapped, r2), text, `round-trip seed case ${i}`);
   }
 });

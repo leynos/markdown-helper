@@ -9,11 +9,21 @@ type MarkdownResult = {
   selection: { start: number; end: number };
 };
 
+type MarkdownCommand =
+  | 'quote'
+  | 'bold'
+  | 'italic'
+  | 'code-span'
+  | 'code-block'
+  | 'footnote';
+
+type MarkdownRequest = {
+  command: MarkdownCommand;
+  readonly value: string;
+  readonly start: number;
+  readonly end: number;
+};
+
 declare const MDHelper: {
-  apply(
-    command: string,
-    value: string,
-    start: number,
-    end: number,
-  ): MarkdownResult | null;
+  apply(request: MarkdownRequest): MarkdownResult | null;
 };
