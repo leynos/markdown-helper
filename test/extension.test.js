@@ -132,6 +132,7 @@ function loadContentScript(
       debug: (...args) => captured.logs.push(args),
       error: (...args) => captured.errors.push(args),
     },
+    performance: { now: () => 0 },
     document: {
       execCommand(command, _ui, text) {
         captured.execCommands.push({ command, text });
@@ -169,12 +170,15 @@ function loadBackgroundScript({ sendMessageImpl } = {}) {
     created: [],
     clickListener: null,
     sent: [],
+    logs: [],
     errors: [],
   };
   const sandbox = {
     console: {
+      debug: (...args) => captured.logs.push(args),
       error: (...args) => captured.errors.push(args),
     },
+    performance: { now: () => 0 },
     browser: {
       menus: {
         create: (spec) => captured.created.push(spec),
@@ -333,9 +337,9 @@ test('background script creates the parent menu and six commands', () => {
   ]);
 });
 
-test('background script routes clicks to the right tab and frame', () => {
+test('background script routes clicks to the right tab and frame', async () => {
   const { clickListener, sent } = loadBackgroundScript();
-  clickListener(
+  await clickListener(
     {
       parentMenuItemId: 'markdown-helper',
       menuItemId: 'quote',
@@ -347,7 +351,12 @@ test('background script routes clicks to the right tab and frame', () => {
   assert.deepEqual(plain(sent), [
     {
       tabId: 9,
-      msg: { type: 'markdown-helper', command: 'quote', targetElementId: 42 },
+      msg: {
+        type: 'markdown-helper',
+        command: 'quote',
+        targetElementId: 42,
+        operationId: 'menu-1',
+      },
       opts: { frameId: 3 },
     },
   ]);
@@ -364,7 +373,7 @@ test('background script logs message-delivery failures', async () => {
   const captured = loadBackgroundScript({
     sendMessageImpl: () => Promise.reject(new Error('no receiver')),
   });
-  captured.clickListener(
+  await captured.clickListener(
     {
       parentMenuItemId: 'markdown-helper',
       menuItemId: 'bold',
@@ -373,6 +382,42 @@ test('background script logs message-delivery failures', async () => {
     },
     { id: 4 },
   );
-  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(captured.errors.length, 1);
+});
+
+test('background tracks repeated and out-of-order delivery completion', async () => {
+  const resolvers = [];
+  const captured = loadBackgroundScript({
+    sendMessageImpl: () =>
+      new Promise((resolve) => {
+        resolvers.push(resolve);
+      }),
+  });
+  const click = (command) =>
+    captured.clickListener(
+      {
+        parentMenuItemId: 'markdown-helper',
+        menuItemId: command,
+        targetElementId: 1,
+        frameId: 0,
+      },
+      { id: 4 },
+    );
+
+  const first = click('bold');
+  const second = click('italic');
+  assert.deepEqual(plain(captured.sent.map(({ msg }) => msg.operationId)), [
+    'menu-1',
+    'menu-2',
+  ]);
+  resolvers[1]();
+  resolvers[0]();
+  await Promise.all([first, second]);
+  assert.equal(captured.logs.length, 2);
+});
+
+test('content script drops a message whose target tore down', () => {
+  const { listener, logs } = loadContentScript(null);
+  listener(message('bold'));
+  assert.equal(logs.length, 1);
 });

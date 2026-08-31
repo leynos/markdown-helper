@@ -8,6 +8,10 @@
  */
 
 (() => {
+  const TAG = '[markdown-helper]';
+  const OPERATION_LIMIT = 1_000_000;
+  let operationSequence = 0;
+
   const MENU_ITEMS = [
     { id: 'quote', title: 'Toggle &Quote' },
     { id: 'bold', title: 'Toggle &Bold' },
@@ -36,31 +40,48 @@
    * Relay a Markdown menu click to the originating content script.
    * @param {browser.menus.OnClickData} info Menu-click metadata.
    * @param {browser.tabs.Tab} tab Originating tab.
+   * @returns {Promise<void>} Delivery completion.
    */
-  function handleMenuClick(info, tab) {
+  async function handleMenuClick(info, tab) {
     if (typeof tab?.id !== 'number') return;
     if (info.parentMenuItemId !== 'markdown-helper') return;
-    browser.tabs
-      .sendMessage(
+    operationSequence = (operationSequence + 1) % OPERATION_LIMIT;
+    const operationId = `menu-${operationSequence}`;
+    const startedAt = performance.now();
+    try {
+      await browser.tabs.sendMessage(
         tab.id,
         {
           type: 'markdown-helper',
           command: info.menuItemId,
           targetElementId: info.targetElementId,
+          operationId,
         },
         { frameId: info.frameId },
-      )
-      .catch((err) =>
-        console.error(
-          '[markdown-helper] failed to deliver command',
-          info.menuItemId,
-          'to tab',
-          tab.id,
-          'frame',
-          info.frameId,
-          err,
-        ),
       );
+      console.debug(
+        TAG,
+        'delivered',
+        operationId,
+        'in',
+        Math.round(performance.now() - startedAt),
+        'ms',
+      );
+    } catch (err) {
+      console.error(
+        TAG,
+        'failed to deliver command',
+        operationId,
+        'to tab',
+        tab.id,
+        'frame',
+        info.frameId,
+        'after',
+        Math.round(performance.now() - startedAt),
+        'ms',
+        err,
+      );
+    }
   }
 
   browser.menus.onClicked.addListener(handleMenuClick);
