@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "lib": ["DOM", "ES2022"],
+    "maxNodeModuleJsDepth": 0,
+    "module": "commonjs",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2022",
+    "types": ["node", "web-ext-types"]
+  },
+  "include": ["src/**/*.js", "src/**/*.d.ts"]
+}

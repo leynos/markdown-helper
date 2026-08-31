@@ -1,0 +1,32 @@
+{
+  "manifest_version": 2,
+  "name": "Markdown Helper",
+  "version": "0.1.0",
+  "description": "Right-click selected text in a text box to toggle Markdown quoting, bold, italic, code spans and code blocks, or turn it into a GFM footnote.",
+  "icons": {
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": ["menus"],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["markdown.js", "content.js"],
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_about_blank": true,
+      "match_origin_as_fallback": true
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "markdown-helper@df12.net",
+      "strict_min_version": "109.0"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true
+  },
+  "files": ["../../src/globals.d.ts", "mdhelper.test.ts"]
+}
