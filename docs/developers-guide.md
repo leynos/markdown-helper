@@ -45,6 +45,15 @@ native path emits `input`; the content script synthesizes one event only when
 the completed edit remained silent. See
 [ADR-0001](adr/0001-preserve-native-undo.md).
 
+## Message delivery policy
+
+For each accepted Markdown menu click, the background script awaits exactly
+one tracked message delivery. Delivery is best effort: failures are logged and
+dropped, with no retry or deduplication because repeated clicks are intentional
+toggles. Separate operations have no ordering guarantee. Operation IDs and
+elapsed-time measurements provide bounded correlation only; they contain no
+selected text or other text payload.
+
 ## Change a Markdown command
 
 1. Change the pure transformation in `src/markdown.js`.
