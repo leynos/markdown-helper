@@ -1,3 +1,7 @@
+/**
+ * @file Compile-time checks for the MDHelper browser API declaration.
+ */
+
 MDHelper.apply({ command: 'bold', value: 'text', start: 0, end: 4 });
 
 const request: MarkdownRequest = {

@@ -59,28 +59,20 @@
         },
         { frameId: info.frameId },
       );
-      console.debug(
-        TAG,
-        'delivered',
+      console.debug(TAG, 'delivered', {
+        command: info.menuItemId,
         operationId,
-        'in',
-        Math.round(performance.now() - startedAt),
-        'ms',
-      );
+        durationMs: Math.round(performance.now() - startedAt),
+      });
     } catch (err) {
-      console.error(
-        TAG,
-        'failed to deliver command',
+      console.error(TAG, 'failed to deliver command', {
+        command: info.menuItemId,
         operationId,
-        'to tab',
-        tab.id,
-        'frame',
-        info.frameId,
-        'after',
-        Math.round(performance.now() - startedAt),
-        'ms',
-        err,
-      );
+        tabId: tab.id,
+        frameId: info.frameId,
+        durationMs: Math.round(performance.now() - startedAt),
+        error: err,
+      });
     }
   }
 

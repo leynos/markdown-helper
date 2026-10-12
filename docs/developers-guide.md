@@ -22,20 +22,25 @@ bun install --frozen-lockfile
 The extension uses three browser scripts:
 
 1. `src/background.js` registers the parent context menu and six child items.
-   A click sends the command, target-element identifier, and frame identifier
-   to the originating tab.
+   A click sends a message body with `type`, `command`, `targetElementId`, and
+   `operationId` to the originating tab. The `frameId` is passed separately
+   in the `browser.tabs.sendMessage()` options.
 2. `src/content.js` resolves that identifier with
    `browser.menus.getTargetElement()`, validates the field, and invokes the
-   synchronous `handleMenuClick(element, command)` boundary.
+   synchronous `handleMenuClick(element, command, operationId)` boundary.
 3. `src/markdown.js` calculates immutable text edits and the selection that
    should remain after those edits.
 
-`MDHelper.apply({ command, value, start, end })` is the transformation API. The
-request fields are read-only, and `command` is one of `quote`, `bold`, `italic`,
-`code-span`, `code-block` or `footnote`. It returns `null` for a no-op or a
-result with non-overlapping `edits` in original string coordinates plus the
-final `selection`. The content script applies edits from the highest offset to
-the lowest so earlier ranges stay valid.
+`src/markdown.js` is an IIFE that provides the `MDHelper` browser-global
+binding. `MDHelper.apply({ command, value, start, end })` is its transformation
+API. The request fields are read-only, and `command` is one of `quote`, `bold`,
+`italic`, `code-span`, `code-block` or `footnote`. It returns `null` for a no-op
+or a result with non-overlapping `edits` in original string coordinates plus
+the final `selection`. The content script applies edits from the highest offset
+to the lowest so earlier ranges stay valid. A guarded CommonJS export makes
+the IIFE available to Node tests; helpers such as `applyToString()` and
+`nextFootnoteLabel()` are test-facing internal exports, not part of the public
+browser contract.
 
 The content script attempts `document.execCommand()` first because Firefox can
 place that edit on the field's native undo stack. It verifies the resulting
@@ -55,6 +60,12 @@ elapsed-time measurements provide bounded correlation only; they contain no
 selected text or other text payload. An in-flight message is not durably queued:
 if the browser or extension context terminates before delivery completes, the
 message may be lost and is not retried.
+
+Background and content scripts emit structured diagnostics for delivery,
+completion, failures, and fallback edits. These include the command,
+`operationId`, `durationMs`, and, where applicable, an error or fallback reason.
+They do not log selected text or message payloads. This is correlation logging,
+not durable tracing: it adds no persistent trace storage or delivery guarantee.
 
 ## Change a Markdown command
 

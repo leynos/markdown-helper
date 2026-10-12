@@ -5,6 +5,8 @@
  */
 
 (() => {
+  const TAG = '[markdown-helper]';
+
   /**
    * Return whether an element supports Markdown Helper's plain-text edits.
    * @param {object | null} el Candidate target element.
@@ -20,13 +22,44 @@
   }
 
   /**
+   * Restore the smallest range that makes the current field equal expected.
+   * @param {HTMLTextAreaElement | HTMLInputElement} el Editable element.
+   * @param {string} expected Correct field value after the edit.
+   */
+  function restoreExpectedValue(el, expected) {
+    const current = el.value;
+    let start = 0;
+    while (start < current.length && current[start] === expected[start]) {
+      start += 1;
+    }
+
+    let currentEnd = current.length;
+    let expectedEnd = expected.length;
+    while (currentEnd > start && expectedEnd > start) {
+      if (current[currentEnd - 1] !== expected[expectedEnd - 1]) break;
+      currentEnd -= 1;
+      expectedEnd -= 1;
+    }
+
+    el.setRangeText(
+      expected.slice(start, expectedEnd),
+      start,
+      currentEnd,
+      'end',
+    );
+  }
+
+  /**
    * Replace one range while preserving native undo and emitting one input event.
    * @param {HTMLTextAreaElement | HTMLInputElement} el Editable element.
    * @param {number} start Replacement start.
    * @param {number} end Replacement end.
    * @param {string} text Replacement text.
+   * @param {MarkdownCommand} command Markdown command.
+   * @param {string} operationId Bounded delivery correlation identifier.
    */
-  function replaceRange(el, start, end, text) {
+  function replaceRange(el, start, end, text, command, operationId) {
+    const startedAt = performance.now();
     const expected = el.value.slice(0, start) + text + el.value.slice(end);
     let inputEmitted = false;
     const markInput = () => {
@@ -47,15 +80,20 @@
       el.removeEventListener('input', markInput);
     }
 
-    if (!ok || el.value !== expected) {
-      el.setRangeText(text, start, end, 'end');
+    if (el.value !== expected) {
+      restoreExpectedValue(el, expected);
+      console.debug(TAG, 'fallback edit', {
+        operationId,
+        command,
+        reason: ok ? 'result-mismatch' : 'command-failed',
+        editPath: 'setRangeText',
+        durationMs: Math.round(performance.now() - startedAt),
+      });
     }
     if (!inputEmitted) {
       el.dispatchEvent(new Event('input', { bubbles: true }));
     }
   }
-
-  const TAG = '[markdown-helper]';
 
   /**
    * Apply a command synchronously to the field associated with a menu click.
@@ -87,28 +125,21 @@
       el.focus();
       const edits = [...result.edits].sort((a, b) => b.start - a.start);
       for (const { start, end, text } of edits) {
-        replaceRange(el, start, end, text);
+        replaceRange(el, start, end, text, command, operationId);
       }
       el.setSelectionRange(result.selection.start, result.selection.end);
-      console.debug(
-        TAG,
-        'completed',
-        operationId,
-        'in',
-        Math.round(performance.now() - startedAt),
-        'ms',
-      );
-    } catch (err) {
-      console.error(
-        TAG,
-        'failed to apply',
+      console.debug(TAG, 'completed', {
         command,
         operationId,
-        'after',
-        Math.round(performance.now() - startedAt),
-        'ms',
-        err,
-      );
+        durationMs: Math.round(performance.now() - startedAt),
+      });
+    } catch (err) {
+      console.error(TAG, 'failed to apply', {
+        command,
+        operationId,
+        durationMs: Math.round(performance.now() - startedAt),
+        error: err,
+      });
     }
   }
 
@@ -119,14 +150,25 @@
   function handleMessage(msg) {
     if (msg?.type !== 'markdown-helper') return;
 
-    const el = browser.menus.getTargetElement(
-      /** @type {number} */ (msg.targetElementId),
-    );
-    handleMenuClick(
-      el,
-      /** @type {MarkdownCommand} */ (msg.command),
-      /** @type {string} */ (msg.operationId),
-    );
+    const command = /** @type {MarkdownCommand} */ (msg.command);
+    const operationId = /** @type {string} */ (msg.operationId);
+    const startedAt = performance.now();
+    /** @type {object | null} */
+    let el = null;
+    try {
+      el = browser.menus.getTargetElement(
+        /** @type {number} */ (msg.targetElementId),
+      );
+    } catch (err) {
+      console.error(TAG, 'failed to resolve target', {
+        command,
+        operationId,
+        durationMs: Math.round(performance.now() - startedAt),
+        error: err,
+      });
+      return;
+    }
+    handleMenuClick(el, command, operationId);
   }
 
   browser.runtime.onMessage.addListener(handleMessage);

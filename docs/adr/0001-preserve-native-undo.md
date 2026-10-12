@@ -23,8 +23,11 @@ provides an equivalent undo-preserving plain-text editing API.
 ## Consequences
 
 - Message handling resolves the target, then calls a synchronous
-  `handleMenuClick(element, command)` function without awaiting other work.
+  `handleMenuClick(element, command, operationId)` function without awaiting
+  other work.
 - Each replacement observes native `input` delivery and synthesizes an event
   only when the completed edit remained silent.
 - Wiring tests cover native success, silent native success, no-op verification,
   and fallback behaviour.
+- Bounded operation IDs correlate delivery and completion diagnostics without
+  including selected text or other text payloads.

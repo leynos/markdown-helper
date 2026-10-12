@@ -1,3 +1,7 @@
+/**
+ * @file Browser-global type declarations shared by the extension scripts.
+ */
+
 type MarkdownEdit = {
   start: number;
   end: number;
