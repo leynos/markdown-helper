@@ -485,34 +485,52 @@ const MDHelper = (() => {
   // ------------------------------------------------------------------
 
   /**
+   * Scan one candidate label through its first regex-significant boundary.
+   * @param {string} value Source text.
+   * @param {number} start First label position.
+   * @returns {{ label: string | null, resumeAt: number } | null} Candidate or EOF.
+   */
+  function scanFootnoteCandidate(value, start) {
+    for (let i = start; i < value.length; i++) {
+      if (/\s/.test(value[i])) return { label: null, resumeAt: i + 1 };
+      if (value[i] === ']') {
+        return {
+          label: i === start ? null : value.slice(start, i),
+          resumeAt: i + 1,
+        };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Yield labels captured by non-overlapping footnote-reference matches.
+   * @param {string} value Source text.
+   * @returns {Generator<string, void, undefined>} Captured labels.
+   */
+  function* footnoteLabels(value) {
+    let cursor = 0;
+    while (cursor < value.length) {
+      const opener = value.indexOf('[^', cursor);
+      if (opener < 0) return;
+      const candidate = scanFootnoteCandidate(value, opener + 2);
+      if (candidate === null) return;
+      if (candidate.label !== null) yield candidate.label;
+      cursor = candidate.resumeAt;
+    }
+  }
+
+  /**
    * Return the first numeric footnote label above every existing label.
    * @param {string} value Source text.
    * @returns {string} Next decimal label.
    */
   function nextFootnoteLabel(value) {
     let next = 1n;
-    let labelStart = -1;
-    for (let i = 0; i < value.length; i++) {
-      if (labelStart < 0) {
-        if (value.startsWith('[^', i)) {
-          i += 1;
-          labelStart = i + 1;
-        }
-        continue;
-      }
-      if (/\s/.test(value[i])) {
-        labelStart = -1;
-        continue;
-      }
-      if (value[i] !== ']') continue;
-
-      // Nested openers remain label content, as in a non-overlapping regex match.
-      const label = value.slice(labelStart, i);
-      if (/^\d+$/.test(label)) {
-        const n = BigInt(label);
-        if (n >= next) next = n + 1n;
-      }
-      labelStart = -1;
+    for (const label of footnoteLabels(value)) {
+      if (!/^\d+$/.test(label)) continue;
+      const candidate = BigInt(label) + 1n;
+      if (candidate > next) next = candidate;
     }
     return String(next);
   }
