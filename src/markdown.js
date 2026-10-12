@@ -491,14 +491,28 @@ const MDHelper = (() => {
    */
   function nextFootnoteLabel(value) {
     let next = 1n;
-    const re = /\[\^([^\]\s]+)\]/g;
-    let m = re.exec(value);
-    while (m !== null) {
-      if (/^\d+$/.test(m[1])) {
-        const n = BigInt(m[1]);
+    let labelStart = -1;
+    for (let i = 0; i < value.length; i++) {
+      if (labelStart < 0) {
+        if (value.startsWith('[^', i)) {
+          i += 1;
+          labelStart = i + 1;
+        }
+        continue;
+      }
+      if (/\s/.test(value[i])) {
+        labelStart = -1;
+        continue;
+      }
+      if (value[i] !== ']') continue;
+
+      // Nested openers remain label content, as in a non-overlapping regex match.
+      const label = value.slice(labelStart, i);
+      if (/^\d+$/.test(label)) {
+        const n = BigInt(label);
         if (n >= next) next = n + 1n;
       }
-      m = re.exec(value);
+      labelStart = -1;
     }
     return String(next);
   }

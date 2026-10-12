@@ -69,8 +69,8 @@
       return;
     }
 
+    const startedAt = performance.now();
     try {
-      const startedAt = performance.now();
       const start = el.selectionStart ?? 0;
       const end = el.selectionEnd ?? start;
       const result = MDHelper.apply({
@@ -99,7 +99,16 @@
         'ms',
       );
     } catch (err) {
-      console.error(TAG, 'failed to apply', command, err);
+      console.error(
+        TAG,
+        'failed to apply',
+        command,
+        operationId,
+        'after',
+        Math.round(performance.now() - startedAt),
+        'ms',
+        err,
+      );
     }
   }
 

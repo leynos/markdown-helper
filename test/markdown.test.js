@@ -6,6 +6,7 @@
  */
 
 const { test } = require('node:test');
+const { spawnSync } = require('node:child_process');
 const assert = require('node:assert/strict');
 const MD = require('../src/markdown.js');
 
@@ -222,6 +223,38 @@ test('footnote labels increment exactly beyond Number.MAX_SAFE_INTEGER', () => {
   assert.equal(
     MD.applyToString(value, result),
     'Already noted[^9007199254740992] and [^9007199254740993].\n\n[^9007199254740993]: this too\n',
+  );
+});
+
+test('footnote scanning preserves nested and whitespace-delimited labels', () => {
+  assert.equal(MD.nextFootnoteLabel('[^[^7] [^3]'), '4');
+  assert.equal(MD.nextFootnoteLabel('[^bad [^7]'), '8');
+  assert.equal(MD.nextFootnoteLabel('[^] [^007] [^note]'), '8');
+});
+
+test('footnote handles large malformed reference runs', () => {
+  const malformed = '[^'.repeat(48 * 1024);
+  const value = `${malformed}\nAlready noted[^2] and this.`;
+  // A subprocess timeout also interrupts a regressed synchronous scan.
+  const script = `
+    const MD = require(process.argv[1]);
+    const value = require('node:fs').readFileSync(0, 'utf8');
+    const start = value.indexOf('this');
+    const result = MD.apply({
+      command: 'footnote', value, start, end: start + 'this'.length,
+    });
+    process.stdout.write(MD.applyToString(value, result));
+  `;
+  const result = spawnSync(
+    process.execPath,
+    ['-e', script, require.resolve('../src/markdown.js')],
+    { input: value, encoding: 'utf8', timeout: 3000 },
+  );
+  assert.equal(result.error, undefined, result.error?.message);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    result.stdout,
+    `${malformed}\nAlready noted[^2] and [^3].\n\n[^3]: this\n`,
   );
 });
 

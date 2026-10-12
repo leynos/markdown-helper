@@ -52,7 +52,9 @@ one tracked message delivery. Delivery is best effort: failures are logged and
 dropped, with no retry or deduplication because repeated clicks are intentional
 toggles. Separate operations have no ordering guarantee. Operation IDs and
 elapsed-time measurements provide bounded correlation only; they contain no
-selected text or other text payload.
+selected text or other text payload. An in-flight message is not durably queued:
+if the browser or extension context terminates before delivery completes, the
+message may be lost and is not retried.
 
 ## Change a Markdown command
 

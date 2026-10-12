@@ -317,6 +317,27 @@ test('content script logs unknown commands instead of throwing', () => {
   assert.equal(errors.length, 1);
 });
 
+test('content script correlates apply errors with operation timing', () => {
+  const el = new FakeTextArea('say hello there');
+  el.focus = () => {
+    throw new Error('focus failed');
+  };
+  const { listener, errors } = loadContentScript(el);
+  listener({ ...message('bold'), operationId: 'menu-7' });
+  assert.equal(errors.length, 1);
+  assert.deepEqual(errors[0].slice(0, 7), [
+    '[markdown-helper]',
+    'failed to apply',
+    'bold',
+    'menu-7',
+    'after',
+    0,
+    'ms',
+  ]);
+  assert.equal(errors[0][7].message, 'focus failed');
+  assert.equal(errors[0].includes('say hello there'), false);
+});
+
 // ------------------------------------------------------------------
 // background.js
 // ------------------------------------------------------------------
