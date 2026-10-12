@@ -1,4 +1,6 @@
-/** Packaging tests for the staged Firefox extension archive. */
+/**
+ * @file Packaging tests for the staged Firefox extension archive.
+ */
 
 const { spawnSync } = require('node:child_process');
 const assert = require('node:assert/strict');

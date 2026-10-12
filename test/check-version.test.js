@@ -1,4 +1,6 @@
-/** Behavioural tests for the release-version validation script. */
+/**
+ * @file Behavioural tests for the release-version validation script.
+ */
 
 const { spawnSync } = require('node:child_process');
 const assert = require('node:assert/strict');
@@ -12,6 +14,10 @@ const {
 const { tmpdir } = require('node:os');
 const { join } = require('node:path');
 const { test } = require('node:test');
+
+const declaredVersion = require('../package.json').version;
+const [versionMajor, versionMinor, versionPatch] = declaredVersion.split('.');
+const mismatchedVersion = `${versionMajor}.${versionMinor}.${BigInt(versionPatch) + 1n}`;
 
 /** Run a command with output isolated from the enclosing test process. */
 function run(command, args) {
@@ -36,21 +42,20 @@ function checkVersion(...args) {
 }
 
 test('check-version accepts declared versions that agree', () => {
-  const result = checkVersion('0.1.0');
+  const result = checkVersion(declaredVersion);
   assert.equal(result.status, 0);
-  assert.match(result.output, /version 0\.1\.0 agrees/);
+  assert.equal(
+    result.output,
+    `version ${declaredVersion} agrees across src/manifest.json and package.json\n`,
+  );
 });
 
 test('check-version rejects a declared-version mismatch', () => {
-  const result = checkVersion('0.1.1');
+  const result = checkVersion(mismatchedVersion);
   assert.equal(result.status, 1);
-  assert.match(
+  assert.equal(
     result.output,
-    /src\/manifest\.json declares 0\.1\.0, expected 0\.1\.1/,
-  );
-  assert.match(
-    result.output,
-    /package\.json declares 0\.1\.0, expected 0\.1\.1/,
+    `src/manifest.json declares ${declaredVersion}, expected ${mismatchedVersion}\npackage.json declares ${declaredVersion}, expected ${mismatchedVersion}\n`,
   );
 });
 

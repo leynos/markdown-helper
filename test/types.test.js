@@ -1,4 +1,6 @@
-/** Compile the public declaration fixture as part of the test gate. */
+/**
+ * @file Compile the public declaration fixture as part of the test gate.
+ */
 
 const { spawnSync } = require('node:child_process');
 const assert = require('node:assert/strict');
