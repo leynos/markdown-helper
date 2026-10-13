@@ -52,13 +52,10 @@
   /**
    * Replace one range while preserving native undo and emitting one input event.
    * @param {HTMLTextAreaElement | HTMLInputElement} el Editable element.
-   * @param {number} start Replacement start.
-   * @param {number} end Replacement end.
-   * @param {string} text Replacement text.
-   * @param {MarkdownCommand} command Markdown command.
-   * @param {string} operationId Bounded delivery correlation identifier.
+   * @param {{ start: number, end: number, text: string, command: MarkdownCommand, operationId: string }} request Edit and diagnostic metadata.
    */
-  function replaceRange(el, start, end, text, command, operationId) {
+  function replaceRange(el, request) {
+    const { start, end, text, command, operationId } = request;
     const startedAt = performance.now();
     const expected = el.value.slice(0, start) + text + el.value.slice(end);
     let inputEmitted = false;
@@ -125,7 +122,7 @@
       el.focus();
       const edits = [...result.edits].sort((a, b) => b.start - a.start);
       for (const { start, end, text } of edits) {
-        replaceRange(el, start, end, text, command, operationId);
+        replaceRange(el, { start, end, text, command, operationId });
       }
       el.setSelectionRange(result.selection.start, result.selection.end);
       console.debug(TAG, 'completed', {
