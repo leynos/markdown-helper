@@ -274,8 +274,10 @@ test('footnote with whitespace-only selection is a no-op', () => {
 
 // ---------------------------------------------------------------- misc
 
-test('unknown command throws', () => {
-  assert.throws(() =>
-    MD.apply({ command: 'nope', value: 'x', start: 0, end: 1 }),
-  );
+test('unknown and inherited commands throw', () => {
+  for (const command of ['nope', 'constructor', 'toString']) {
+    assert.throws(() => MD.apply({ command, value: 'x', start: 0, end: 1 }), {
+      message: `Unknown command: ${command}`,
+    });
+  }
 });

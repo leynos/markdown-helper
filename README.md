@@ -7,7 +7,8 @@ scroll](src/icons/icon-128.png)
 
 Select some text in a `<textarea>`, right-click, and pick a command from the
 **Markdown** menu. Quoting, bold, italic, code spans, code blocks, and GFM
-footnotes — applied in place, undoable with Ctrl+Z.
+footnotes — applied in place. Ctrl+Z restores edits made through Firefox's
+native editing path; fallback edits may not be undoable.
 
 ______________________________________________________________________
 
@@ -25,7 +26,9 @@ fiddly parts for you:
   the original text exactly.
 - **Footnotes with a memory**: converting a selection to a footnote numbers
   it with awareness of every `[^ref]` already in the box.
-- **Undo-friendly**: edits go through the browser's native undo stack.
+- **Undo-friendly**: edits use the browser's native undo stack when the native
+  editing path succeeds. Fallback edits use `setRangeText()` and may not be
+  undoable with Ctrl+Z.
 
 ______________________________________________________________________
 

@@ -38,6 +38,9 @@ jobs:
           VERSION: ${{ github.ref_name }}
         run: make check-version
 
+      - name: Run tests without signing credentials
+        run: make test
+
       - name: Sign with addons.mozilla.org
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_API_KEY }}

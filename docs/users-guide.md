@@ -39,7 +39,8 @@ the formatting. **Convert to Footnote** is not a toggle; it chooses a numeric
 label above every footnote reference or definition already in the field.
 
 Each command preserves the resulting selection. Firefox's standard undo
-command restores native edits.
+command restores edits made through the native editing path. Fallback edits
+use `setRangeText()` and may not be restored by Ctrl+Z.
 
 ## Understand the scope
 

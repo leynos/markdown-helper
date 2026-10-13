@@ -596,8 +596,10 @@ const MDHelper = (() => {
    * @returns {MarkdownResult | null} Edit result.
    */
   function apply({ command, value, start, end }) {
+    if (!Object.hasOwn(commands, command)) {
+      throw new Error(`Unknown command: ${command}`);
+    }
     const fn = commands[command];
-    if (!fn) throw new Error(`Unknown command: ${command}`);
     return fn(value, start, end);
   }
 

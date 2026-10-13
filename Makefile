@@ -40,7 +40,7 @@ stage:
 package: test assemble
 
 # Signed by addons.mozilla.org; needs WEB_EXT_API_KEY and WEB_EXT_API_SECRET.
-sign: test stage
+sign: stage
 	bunx web-ext sign --source-dir $(STAGE) --artifacts-dir $(DIST) --channel unlisted
 
 clean:
