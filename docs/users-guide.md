@@ -36,7 +36,9 @@ unsigned and cannot be installed as a permanent release.
 
 The first five commands are toggles. Apply the same command again to remove
 the formatting. **Convert to Footnote** is not a toggle; it chooses a numeric
-label above every footnote reference or definition already in the field.
+label after the highest numeric label already in the field. Non-numeric
+labels such as `[^note]` do not affect numbering, so the next label may be
+`[^1]`.
 
 Each command preserves the resulting selection. Firefox's standard undo
 command restores edits made through the native editing path. Fallback edits

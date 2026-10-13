@@ -64,7 +64,7 @@ test('bold unwraps when markers surround the selection', () => {
   assert.equal(run('bold', 'say **«hello»** there'), 'say hello there');
 });
 
-test('bold recognises __ markers for removal', () => {
+test('bold recognizes __ markers for removal', () => {
   assert.equal(run('bold', 'say «__hello__» there'), 'say hello there');
 });
 
@@ -161,7 +161,7 @@ test('code block unwraps when fences surround the selection', () => {
   assert.equal(run('code-block', 'a\n```\n«x = 1»\n```\nb'), 'a\nx = 1\nb');
 });
 
-test('code block recognises fences with an info string', () => {
+test('code block recognizes fences with an info string', () => {
   assert.equal(run('code-block', '«```python\nx = 1\n```»'), 'x = 1');
 });
 

@@ -45,9 +45,17 @@ jobs:
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_API_KEY }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_API_SECRET }}
-        run: make sign
+        run: |
+          rm -f dist/markdown-helper.xpi
+          make sign
+          mapfile -t signed_xpis < <(find dist -maxdepth 1 -type f -name '*.xpi' -print)
+          if [[ ${#signed_xpis[@]} -ne 1 ]]; then
+            echo "Expected exactly one signed XPI, found ${#signed_xpis[@]}" >&2
+            exit 1
+          fi
+          mv "${signed_xpis[0]}" dist/markdown-helper-signed.xpi
 
       - name: Publish the signed XPI
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.xpi --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/markdown-helper-signed.xpi --generate-notes

@@ -1,6 +1,6 @@
 # 📝 Markdown Helper
 
-*Right-click Markdown formatting for any text box in Firefox.*
+*Right-click Markdown formatting for supported text fields in Firefox.*
 
 ![A chibi scribe writing an M-down-arrow mark on a parchment
 scroll](src/icons/icon-128.png)
