@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Markdown Helper browser test</title>
+  </head>
+  <body>
+    <label for="textarea">Multiline editor</label>
+    <textarea id="textarea" rows="4" cols="60">hello world</textarea>
+    <label for="input">Single-line editor</label>
+    <input id="input" type="text" value="hello world">
+    <script>
+      window.inputEvents = [];
+      document.addEventListener('input', (event) => {
+        window.inputEvents.push({ target: event.target.id, bubbles: event.bubbles });
+      });
+    </script>
+  </body>
+</html>
