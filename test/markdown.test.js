@@ -281,3 +281,16 @@ test('unknown and inherited commands throw', () => {
     });
   }
 });
+
+test('code span restores padded edge backticks from the shrunk property case', () => {
+  const value = 'ax`yx```';
+  const wrapped = MD.toggleCodeSpan(value, 0, value.length);
+  const once = MD.applyToString(value, wrapped);
+  const restored = MD.toggleCodeSpan(
+    once,
+    wrapped.selection.start,
+    wrapped.selection.end,
+  );
+  assert.equal(MD.applyToString(once, restored), value);
+  assert.deepEqual(restored.selection, { start: 0, end: value.length });
+});

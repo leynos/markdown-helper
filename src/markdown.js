@@ -256,8 +256,12 @@ const MDHelper = (() => {
         ? codeSpanContent(selection, fenceLength, contentStart)
         : padded;
     if (content === null) return null;
-    if (content.startsWith('`')) return null;
-    if (content.endsWith('`')) return null;
+    if (padded === null && (content.startsWith('`') || content.endsWith('`'))) {
+      return null;
+    }
+    if ((content.match(/`+/g) || []).some((run) => run.length >= fenceLength)) {
+      return null;
+    }
     return content;
   }
 

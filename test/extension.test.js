@@ -167,7 +167,10 @@ function loadContentScript(
       },
     },
   };
-  vm.runInNewContext(read('content.js'), sandbox, { filename: 'content.js' });
+  vm.createContext(sandbox);
+  vm.runInContext(read('telemetry.js'), sandbox);
+  captured.telemetry = vm.runInContext('MDTelemetry', sandbox);
+  vm.runInContext(read('content.js'), sandbox, { filename: 'content.js' });
   return captured;
 }
 
@@ -212,7 +215,10 @@ function loadBackgroundScript({
     'const OPERATION_LIMIT = 1_000_000;',
     `const OPERATION_LIMIT = ${operationLimit};`,
   );
-  vm.runInNewContext(source, sandbox, {
+  vm.createContext(sandbox);
+  vm.runInContext(read('telemetry.js'), sandbox);
+  captured.telemetry = vm.runInContext('MDTelemetry', sandbox);
+  vm.runInContext(source, sandbox, {
     filename: 'background.js',
   });
   return captured;
@@ -583,11 +589,78 @@ test('background tracks repeated and out-of-order delivery completion', async ()
   resolvers[1]();
   resolvers[0]();
   await Promise.all([first, second]);
-  assert.equal(captured.logs.length, 2);
+  assert.equal(
+    captured.logs.filter(([, event]) => event === 'delivered').length,
+    2,
+  );
 });
 
 test('content script drops a message whose target tore down', () => {
-  const { listener, logs } = loadContentScript(null);
-  listener(message('bold'));
-  assert.equal(logs.length, 1);
+  const { listener, errors, telemetry } = loadContentScript(null);
+  listener({ ...message('bold'), operationId: 'menu-9' });
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0][2].operationId, 'menu-9');
+  assert.equal(errors[0][2].reason, 'target-unavailable');
+  assert.equal(
+    telemetry.snapshot()[0].labels,
+    'target:failure:target-unavailable',
+  );
+});
+
+test('operation spans and metrics cover native, fallback, ignored, and target failures', () => {
+  const field = new FakeTextArea('hello');
+  field.setSelectionRange(0, 5);
+  const native = loadContentScript(field);
+  native.listener({ ...message('bold'), operationId: 'menu-42' });
+  assert.deepEqual(
+    plain(native.telemetry.snapshot()).map((entry) => entry.labels),
+    ['target:success:none', 'edit:success:none', 'apply:success:none'],
+  );
+  for (const [, event, span] of native.logs) {
+    if (event === 'span-start' || event === 'span-end') {
+      assert.equal(span.operationId, 'menu-42');
+      assert.ok(!JSON.stringify(span).includes('hello'));
+    }
+  }
+  const fallback = loadContentScript(new FakeTextArea('hello'), {
+    execCommandOk: false,
+  });
+  fallback.listener(message('bold'));
+  assert.ok(
+    fallback.telemetry
+      .snapshot()
+      .some((entry) => entry.labels === 'edit:fallback:command-failed'),
+  );
+  const ignored = loadContentScript(new FakeInput('secret', 'password'));
+  ignored.listener(message('bold'));
+  assert.ok(
+    ignored.telemetry
+      .snapshot()
+      .some((entry) => entry.labels === 'apply:ignored:unsupported-field'),
+  );
+  const missing = loadContentScript(field);
+  missing.listener({ ...message('bold'), targetElementId: 'unavailable' });
+  assert.equal(
+    missing.telemetry.snapshot()[0].labels,
+    'target:failure:target-unavailable',
+  );
+});
+
+test('delivery metrics close both resolved and rejected message spans', async () => {
+  const info = {
+    parentMenuItemId: 'markdown-helper',
+    menuItemId: 'bold',
+    targetElementId: 7,
+  };
+  const success = loadBackgroundScript();
+  await success.clickListener(info, { id: 1 });
+  assert.equal(success.telemetry.snapshot()[0].labels, 'delivery:success:none');
+  const failed = loadBackgroundScript({
+    sendMessageImpl: () => Promise.reject(new Error('unavailable')),
+  });
+  await failed.clickListener(info, { id: 1 });
+  assert.equal(
+    failed.telemetry.snapshot()[0].labels,
+    'delivery:failure:send-failed',
+  );
 });

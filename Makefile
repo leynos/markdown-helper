@@ -1,4 +1,4 @@
-.PHONY: all check-fmt lint typecheck test check-version stage package sign clean
+.PHONY: all check-fmt lint typecheck test test-e2e check-version stage package sign clean
 
 DIST := dist
 STAGE := $(DIST)/package
@@ -17,6 +17,10 @@ typecheck:
 
 test:
 	node --test test/*.test.js
+
+# Install the actual XPI in Firefox and activate its native context menu.
+test-e2e: assemble
+	node scripts/firefox-e2e.js
 
 # Fails unless VERSION matches every version the repository declares, so a
 # release tag can never ship a package that names a different version.

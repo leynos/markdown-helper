@@ -48,6 +48,7 @@
     operationSequence = (operationSequence + 1) % OPERATION_LIMIT;
     const operationId = `menu-${operationSequence}`;
     const startedAt = performance.now();
+    const span = MDTelemetry.start('delivery', operationId);
     try {
       await browser.tabs.sendMessage(
         tab.id,
@@ -59,12 +60,14 @@
         },
         { frameId: info.frameId },
       );
+      span.end('success');
       console.debug(TAG, 'delivered', {
         command: info.menuItemId,
         operationId,
         durationMs: Math.round(performance.now() - startedAt),
       });
     } catch (err) {
+      span.end('failure', 'send-failed');
       console.error(TAG, 'failed to deliver command', {
         command: info.menuItemId,
         operationId,

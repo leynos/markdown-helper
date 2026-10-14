@@ -19,7 +19,8 @@ bun install --frozen-lockfile
 
 ## Follow the extension flow
 
-The extension uses three browser scripts:
+The extension uses four browser scripts. `src/telemetry.js` loads first in
+both background and content contexts; it supplies synchronous metrics and spans:
 
 1. `src/background.js` registers the parent context menu and six child items.
    A click sends a message body with `type`, `command`, `targetElementId`, and
@@ -67,6 +68,29 @@ completion, failures, and fallback edits. These include the command,
 They do not log selected text or message payloads. This is correlation logging,
 not durable tracing: it adds no persistent trace storage or delivery guarantee.
 
+`MDTelemetry.start(stage, operationId)` emits paired `span-start` and
+`span-end` diagnostics with the propagated correlation ID. Delivery spans
+cover the awaited send; target, apply, and edit spans stay synchronous. Metrics
+use only the fixed stages (`delivery`, `target`, `apply`, `edit`), outcomes
+(`success`, `failure`, `noop`, `ignored`, `fallback`), and reasons declared in
+`src/telemetry.js`. IDs are never metric labels. `MDTelemetry.snapshot()`
+returns detached context-local aggregates: counts, summed milliseconds, and
+exclusive latency buckets at 1, 10, 100, 1000 ms, plus overflow. Counts and sums
+saturate at one billion; there are at most 140 label combinations. These reset
+when the extension context unloads and have no network exporter. Invalid IDs
+become `menu-invalid` in spans. Metrics and spans contain no field values,
+selected text, URLs, or error messages.
+
+## Reproduce the code-span property
+
+`make test` includes `test/code-span-properties.test.js`, which uses fast-check
+with seed `0xc0de` and 1,000 cases. It generates multiple backtick runs,
+optional edge backticks, and varied prefix/suffix lengths to exercise valid
+selections. It checks fence dominance, edge padding, selection coordinates,
+and double-toggle restoration. On failure fast-check reports the seed and
+shrink path; replay by passing those values to `fc.assert` in that test. The
+shrunk edge-backtick failure is also preserved as an example regression.
+
 ## Change a Markdown command
 
 1. Change the pure transformation in `src/markdown.js`.
@@ -82,6 +106,36 @@ The wiring tests execute the real browser scripts in `node:vm` with recording
 DOM and WebExtension fakes. Native success, silent native success, verified
 no-op fallback, and `execCommand()` failure each have a distinct test path.
 
+## Run the Firefox browser test
+
+Install Firefox 140.4.0 ESR and geckodriver 0.36.0, then run:
+
+```shell
+make test-e2e
+```
+
+Both tools must be on `PATH`. Alternatively set `FIREFOX_BINARY` and
+`GECKODRIVER` to their executable paths. The test runs Firefox headlessly in a
+fresh WebDriver profile, installs the packaged `dist/markdown-helper.xpi`
+temporarily, and serves `test/browser/editor.html` on a loopback port. It
+selects text in a textarea and a text input, opens Firefox's real context menu,
+and activates **Markdown > Toggle Bold** using the menu item's native XUL
+`doCommand()` method through browser-chrome WebDriver access. Repeated
+headless WebDriver pointer clicks failed to dispatch the second menu command
+in either field order, so native command activation keeps both scenarios
+deterministic while exercising the actual `browser.menus.onClicked` listener.
+It asserts the resulting value, selection, and exactly one bubbling input
+event for each field. It never calls an extension listener or sends a synthetic
+extension message. Firefox's `--allow-system-access` permission is confined to
+this disposable test session; the browser and driver stop when the test ends.
+
+The [Test workflow](../.github/workflows/test.yml) runs this gate after the
+sequential unit gates on every pull request and push to `main`. Browser errors
+fail the gate, and a failed interaction saves a screenshot under
+`dist/browser-e2e/` for the workflow artefact. `agent-browser` uses Chromium's
+CDP protocol, so geckodriver supplies the Firefox-specific privileged menu
+interaction this test requires.
+
 ## Run the commit gates
 
 Run the gates in this order:
@@ -95,7 +149,8 @@ make test
 
 `make check-fmt` and `make lint` use the Biome version pinned in `bun.lock`.
 `make typecheck` checks the browser source as JavaScript through TypeScript;
-`src/globals.d.ts` describes the shared `MDHelper` browser global.
+`src/globals.d.ts` describes the shared `MDHelper` and `MDTelemetry` browser
+globals.
 
 ## Build and inspect the package
 
@@ -106,7 +161,7 @@ make package
 ```
 
 The target reruns the tests and creates `dist/markdown-helper.xpi`. The archive
-contains `manifest.json`, the three browser scripts, the packaged icon sizes,
+contains `manifest.json`, the four browser scripts, the packaged icon sizes,
 and `LICENSE`; it excludes the 1024 px source icon.
 
 Load the XPI temporarily through `about:debugging#/runtime/this-firefox` and

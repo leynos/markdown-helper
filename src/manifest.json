@@ -11,12 +11,12 @@
   },
   "permissions": ["menus"],
   "background": {
-    "scripts": ["background.js"]
+    "scripts": ["telemetry.js", "background.js"]
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["markdown.js", "content.js"],
+      "js": ["telemetry.js", "markdown.js", "content.js"],
       "run_at": "document_idle",
       "all_frames": true,
       "match_about_blank": true,

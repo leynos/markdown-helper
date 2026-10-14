@@ -31,3 +31,21 @@ provides an equivalent undo-preserving plain-text editing API.
   and fallback behaviour.
 - Bounded operation IDs correlate delivery and completion diagnostics without
   including selected text or other text payloads.
+
+## Addendum: 2026-10-14 — delivery correlation and observability
+
+The delivery-correlation change in commit `fa94e71` added a bounded
+`operationId` to the background message and to the synchronous
+`handleMenuClick(element, command, operationId)` content-side handler.
+The accepted native-undo decision remains in force: target resolution and
+editing stay synchronous, native edits are verified, and `setRangeText()`
+remains the fallback with one input notification per replacement.
+
+The subsequent observability change adds synchronous, context-local metrics
+and span diagnostics around delivery, target resolution, apply, and edit.
+The message carries the correlation ID across the asynchronous delivery
+boundary; IDs are span fields rather than metric labels. Fixed outcome and
+reason labels, saturating counters, and fixed latency buckets bound memory.
+Neither text payloads nor selected text enter metrics or spans. These changes
+introduce no await into the content-side edit boundary and do not change
+Firefox undo semantics or guarantee native undo for fallback edits.

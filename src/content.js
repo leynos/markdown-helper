@@ -55,6 +55,23 @@
    * @param {{ start: number, end: number, text: string, command: MarkdownCommand, operationId: string }} request Edit and diagnostic metadata.
    */
   function replaceRange(el, request) {
+    const span = MDTelemetry.start('edit', request.operationId);
+    try {
+      const reason = performReplacement(el, request);
+      span.end(reason === 'none' ? 'success' : 'fallback', reason);
+    } catch (error) {
+      span.end('failure', 'apply-failed');
+      throw error;
+    }
+  }
+
+  /**
+   * Perform a synchronous replacement and return its bounded fallback reason.
+   * @param {HTMLTextAreaElement | HTMLInputElement} el Editable element.
+   * @param {{ start: number, end: number, text: string, command: MarkdownCommand, operationId: string }} request Edit metadata.
+   * @returns {string} Fixed fallback reason or none.
+   */
+  function performReplacement(el, request) {
     const { start, end, text, command, operationId } = request;
     const startedAt = performance.now();
     const expected = el.value.slice(0, start) + text + el.value.slice(end);
@@ -77,8 +94,10 @@
       el.removeEventListener('input', markInput);
     }
 
+    let reason = 'none';
     if (el.value !== expected) {
       restoreExpectedValue(el, expected);
+      reason = ok ? 'result-mismatch' : 'command-failed';
       console.debug(TAG, 'fallback edit', {
         operationId,
         command,
@@ -90,6 +109,7 @@
     if (!inputEmitted) {
       el.dispatchEvent(new Event('input', { bubbles: true }));
     }
+    return reason;
   }
 
   /**
@@ -99,7 +119,9 @@
    * @param {string} operationId Bounded delivery correlation identifier.
    */
   function handleMenuClick(el, command, operationId) {
+    const span = MDTelemetry.start('apply', operationId);
     if (!isTextField(el)) {
+      span.end('ignored', 'unsupported-field');
       console.debug(TAG, 'ignoring', command, 'on a non-text-field target');
       return;
     }
@@ -115,6 +137,7 @@
         end,
       });
       if (!result) {
+        span.end('noop');
         console.debug(TAG, command, 'was a no-op for the current selection');
         return;
       }
@@ -125,12 +148,14 @@
         replaceRange(el, { start, end, text, command, operationId });
       }
       el.setSelectionRange(result.selection.start, result.selection.end);
+      span.end('success');
       console.debug(TAG, 'completed', {
         command,
         operationId,
         durationMs: Math.round(performance.now() - startedAt),
       });
     } catch (err) {
+      span.end('failure', 'apply-failed');
       console.error(TAG, 'failed to apply', {
         command,
         operationId,
@@ -152,19 +177,33 @@
     const startedAt = performance.now();
     /** @type {object | null} */
     let el = null;
+    const span = MDTelemetry.start('target', operationId);
     try {
       el = browser.menus.getTargetElement(
         /** @type {number} */ (msg.targetElementId),
       );
     } catch (err) {
+      span.end('failure', 'target-unavailable');
       console.error(TAG, 'failed to resolve target', {
         command,
         operationId,
+        reason: 'target-unavailable',
         durationMs: Math.round(performance.now() - startedAt),
         error: err,
       });
       return;
     }
+    if (el === null) {
+      span.end('failure', 'target-unavailable');
+      console.error(TAG, 'failed to resolve target', {
+        command,
+        operationId,
+        reason: 'target-unavailable',
+        durationMs: Math.round(performance.now() - startedAt),
+      });
+      return;
+    }
+    span.end('success');
     handleMenuClick(el, command, operationId);
   }
 

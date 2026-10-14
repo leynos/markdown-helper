@@ -20,11 +20,14 @@ test('manifest registers the expected browser scripts and editable frames', () =
     fs.readFileSync(path.join(__dirname, '../src/manifest.json'), 'utf8'),
   );
   assert.deepEqual(manifest.permissions, ['menus']);
-  assert.deepEqual(manifest.background.scripts, ['background.js']);
+  assert.deepEqual(manifest.background.scripts, [
+    'telemetry.js',
+    'background.js',
+  ]);
   assert.deepEqual(manifest.content_scripts, [
     {
       matches: ['<all_urls>'],
-      js: ['markdown.js', 'content.js'],
+      js: ['telemetry.js', 'markdown.js', 'content.js'],
       run_at: 'document_idle',
       all_frames: true,
       match_about_blank: true,
@@ -39,6 +42,7 @@ test('assembled XPI contains the runtime extension files only', () => {
     '\n',
   );
   assert.ok(entries.includes('background.js'));
+  assert.ok(entries.includes('telemetry.js'));
   assert.ok(entries.includes('content.js'));
   assert.ok(entries.includes('markdown.js'));
   assert.ok(entries.includes('manifest.json'));
