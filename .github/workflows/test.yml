@@ -25,7 +25,8 @@ jobs:
       - uses: browser-actions/setup-firefox@0bc507ddf224827e3b1af68e014d5e42ab93e795
         with:
           firefox-version: '140.4.0esr'
-      - uses: browser-actions/setup-geckodriver@bf8266f624ca122cedb6d0381a031f18f6c431cd
+      # Pin the built `latest` distribution, rather than source-only master.
+      - uses: browser-actions/setup-geckodriver@fac5b0424c584257f32cf12c5eb4ba86014c34f8
         with:
           geckodriver-version: '0.36.0'
       - run: bun install --frozen-lockfile

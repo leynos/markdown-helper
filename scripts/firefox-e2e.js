@@ -55,6 +55,14 @@ class WebDriver {
     return this.command('/execute/sync', { script, args });
   }
 
+  async isReady() {
+    try {
+      return (await this.request('GET', '/status')).ready;
+    } catch {
+      return false;
+    }
+  }
+
   async installPackage() {
     const options = {
       args: ['-headless'],
@@ -225,40 +233,64 @@ async function captureFailure(driver) {
   }
 }
 
-async function main() {
+async function createFixtureServer() {
   const fixture = await fs.readFile(
     path.join(ROOT, 'test/browser/editor.html'),
   );
-  const page = http.createServer((_request, response) => {
+  return http.createServer((_request, response) => {
     response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     response.end(fixture);
   });
-  const reservation = http.createServer();
-  const port = await listen(reservation);
-  await new Promise((resolve) => reservation.close(resolve));
-  const service = spawn(
-    process.env.GECKODRIVER || 'geckodriver',
-    ['--port', String(port), '--host', '127.0.0.1', '--allow-system-access'],
-    { stdio: ['ignore', 'inherit', 'inherit'] },
-  );
-  let launchError;
-  service.on('error', (error) => {
-    launchError = error;
-  });
-  const driver = new WebDriver(port);
+}
+
+// Own the driver process, including readiness checks and stopping only this
+// test's child. WebDriver separately owns the disposable browser session.
+class GeckoService {
+  constructor(port) {
+    this.port = port;
+    this.launchError = undefined;
+    this.process = spawn(
+      process.env.GECKODRIVER || 'geckodriver',
+      ['--port', String(port), '--host', '127.0.0.1', '--allow-system-access'],
+      { stdio: ['ignore', 'inherit', 'inherit'] },
+    );
+    this.process.on('error', (error) => {
+      this.launchError = error;
+    });
+  }
+
+  static async start() {
+    const reservation = http.createServer();
+    const port = await listen(reservation);
+    await new Promise((resolve) => reservation.close(resolve));
+    return new GeckoService(port);
+  }
+
+  async waitForReady(driver) {
+    await waitFor(async () => {
+      if (this.launchError) throw this.launchError;
+      if (this.process.exitCode !== null) {
+        throw new Error(`geckodriver exited: ${this.process.exitCode}`);
+      }
+      return driver.isReady();
+    }, 'geckodriver startup');
+  }
+
+  async close() {
+    if (this.process.exitCode !== null || this.launchError) return;
+    const stopped = once(this.process, 'exit');
+    this.process.kill('SIGTERM');
+    await stopped;
+  }
+}
+
+async function main() {
+  const page = await createFixtureServer();
+  const service = await GeckoService.start();
+  const driver = new WebDriver(service.port);
   try {
     const pagePort = await listen(page);
-    await waitFor(async () => {
-      if (launchError) throw launchError;
-      if (service.exitCode !== null) {
-        throw new Error(`geckodriver exited: ${service.exitCode}`);
-      }
-      try {
-        return (await driver.request('GET', '/status')).ready;
-      } catch {
-        return false;
-      }
-    }, 'geckodriver startup');
+    await service.waitForReady(driver);
     await driver.installPackage();
     for (const fieldId of ['textarea', 'input']) {
       await exerciseField(driver, pagePort, fieldId);
@@ -268,11 +300,7 @@ async function main() {
     throw error;
   } finally {
     await driver.close();
-    if (service.exitCode === null && !launchError) {
-      const stopped = once(service, 'exit');
-      service.kill('SIGTERM');
-      await stopped;
-    }
+    await service.close();
     await new Promise((resolve) => page.close(resolve));
   }
 }

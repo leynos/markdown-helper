@@ -255,14 +255,24 @@ const MDHelper = (() => {
       padded === null
         ? codeSpanContent(selection, fenceLength, contentStart)
         : padded;
-    if (content === null) return null;
-    if (padded === null && (content.startsWith('`') || content.endsWith('`'))) {
-      return null;
-    }
-    if ((content.match(/`+/g) || []).some((run) => run.length >= fenceLength)) {
-      return null;
-    }
-    return content;
+    return validCodeSpanContent(content, fenceLength, padded !== null)
+      ? content
+      : null;
+  }
+
+  /**
+   * Validate whether extracted text belongs inside its backtick fence.
+   * @param {string | null} content Extracted span text.
+   * @param {number} fenceLength Enclosing fence width.
+   * @param {boolean} padded Whether explicit space padding separates the fence.
+   * @returns {boolean} Whether internal runs and edges cannot merge with the fence.
+   */
+  function validCodeSpanContent(content, fenceLength, padded) {
+    if (content === null) return false;
+    if (!padded && /^`|`$/.test(content)) return false;
+    return (content.match(/`+/g) || []).every(
+      (run) => run.length < fenceLength,
+    );
   }
 
   /**
