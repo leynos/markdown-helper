@@ -35,6 +35,12 @@ jobs:
           geckodriver-version: '0.36.0'
       - run: bun install --frozen-lockfile
       - run: make check-fmt
+      - name: Set up uv for the YAML lint tools
+        uses: astral-sh/setup-uv@c5680ec91f7b9b91406fab4ded5d45245abf7b67
+        with:
+          enable-cache: false
+      - name: Install the YAML lint tools
+        uses: leynos/shared-actions/.github/actions/install-yaml-lint@a108423efa7fb83565089449f2647d34286a48a4
       - run: make lint
       - run: make typecheck
       - run: make test
