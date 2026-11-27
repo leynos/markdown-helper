@@ -227,7 +227,7 @@ in `.yamllint.yml` replaces that entry rather than adding to it. Run it from
 the repository root, because yamllint resolves `extends` against the current
 directory. `make actionlint` checks the GitHub Actions workflows, accepting the
 runner labels in `.github/actionlint.yaml`, and runs ShellCheck over their
-`run:` scripts when it is on `PATH`.
+Bash and `sh` `run:` scripts when it is on `PATH` (it skips PowerShell steps).
 
 Install the tools locally at the versions CI uses: `uv tool install
 yamllint==1.38.0`, and the `actionlint` 1.7.12 and `shellcheck` 0.11.0 release
